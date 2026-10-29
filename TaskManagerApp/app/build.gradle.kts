@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.taskmanagementapp"
+    namespace = "com.example.taskmanagerapp"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.taskmanagementapp"
+        applicationId = "com.example.taskmanagerapp"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -59,4 +59,9 @@ dependencies {
     // Lifecycle & ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+
+    // Test dependencies
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 }
