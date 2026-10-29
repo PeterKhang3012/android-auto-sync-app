@@ -102,14 +102,41 @@ teammate. Các file Compose/Room của Midterm không được chép đè vào a
 
 ### Chạy trên máy tính
 
-Cần Node.js 18+ và Android Studio với Android SDK 34. Trong Terminal:
+Cài Node.js LTS (kèm npm) và Android Studio với Android SDK 34 trước.
+Sau khi pull code, chạy server bằng một trong hai cách dưới đây.
+
+**Windows:** mở Terminal tại `TaskManagerApp` rồi chạy:
+
+```powershell
+.\run.bat
+```
+
+Hoặc nhấp đúp `run.bat` trong File Explorer.
+
+**macOS/Linux:** mở Terminal tại `TaskManagerApp` rồi chạy:
 
 ```sh
-cd TaskManagerApp/server
-npm ci
-npm test
-npm start
+bash run.sh
 ```
+
+Hai script tự tìm thư mục `server` theo vị trí của script, chạy `npm ci` để cài
+đúng phiên bản thư viện trong `package-lock.json`, rồi chạy `npm start` nếu cài
+thành công. Có thể gọi script bằng đường dẫn từ thư mục khác. Mỗi lần chạy sẽ
+cài lại dependency nên cần kết nối mạng. Script không tự cài Node.js hoặc npm.
+
+Khi thấy `TaskSync server: http://localhost:3000`, giữ cửa sổ Terminal mở và chạy
+app Android. Nhấn `Ctrl+C` để dừng server. Nếu được hỏi `Terminate batch job` trên
+Windows, chọn `Y`. Nếu cổng 3000 đang được dùng, dừng server cũ trước khi chạy lại.
+Trên Windows, cửa sổ sẽ được giữ lại khi có lỗi để đọc thông báo.
+
+Để chạy kiểm thử server riêng, mở Terminal tại `TaskManagerApp`:
+
+```sh
+cd server
+npm test
+```
+
+Lệnh kiểm thử cần dependency đã được cài bởi script hoặc `npm ci`.
 
 Mở thư mục `TaskManagerApp` bằng Android Studio, chạy app trên Android Emulator.
 Retrofit gọi `http://10.0.2.2:3000/`. Máy Android thật cần thay BASE_URL trong
