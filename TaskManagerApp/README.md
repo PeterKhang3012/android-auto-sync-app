@@ -1,4 +1,4 @@
-# TaskManagerApp - Offline-First Android Client (Người A)
+# TaskManagerApp - Offline-First Android Client 
 
 Ứng dụng quản lý công việc (Task Manager) trên nền tảng Android được xây dựng theo kiến trúc **Offline-First**, đảm bảo người dùng luôn có thể tạo, chỉnh sửa, xóa và theo dõi công việc ngay cả khi không có kết nối Internet. Dữ liệu sẽ tự động được xếp hàng và đồng bộ hai chiều với máy chủ ngay khi có mạng thông qua **Android Jetpack WorkManager**.
 
