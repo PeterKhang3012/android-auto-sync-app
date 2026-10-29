@@ -93,3 +93,66 @@ Lệnh chạy kiểm thử:
    ```
 4. File APK sau khi build nằm tại:
    `app/build/outputs/apk/debug/app-debug.apk`
+
+## Tích hợp server và đồng bộ từ project Midterm
+
+Giữ nguyên package `com.example.taskmanagerapp`, giao diện XML, Room và MVVM của
+teammate. Các file Compose/Room của Midterm không được chép đè vào app; chức năng
+đồng bộ được chuyển sang `sync/SyncEngine.kt` và dùng chung TaskEntity hiện tại.
+
+### Chạy trên máy tính
+
+Cần Node.js 18+ và Android Studio với Android SDK 34. Trong Terminal:
+
+```sh
+cd TaskManagerApp/server
+npm ci
+npm test
+npm start
+```
+
+Mở thư mục `TaskManagerApp` bằng Android Studio, chạy app trên Android Emulator.
+Retrofit gọi `http://10.0.2.2:3000/`. Máy Android thật cần thay BASE_URL trong
+`data/remote/RetrofitClient.kt` bằng IP LAN của máy chạy server và cho phép cổng 3000
+qua firewall. Không dùng địa chỉ emulator cho điện thoại thật.
+
+### Kiểm tra hai thiết bị
+
+1. Tắt Demo Mock, tạo task trên emulator A và bấm **Đồng bộ ngay**.
+2. Trên emulator B bấm đồng bộ; task từ A phải xuất hiện.
+3. Ngắt mạng A, chỉnh sửa task; đồng thời sửa task trên B và đồng bộ B.
+4. Bật mạng A rồi đồng bộ. Menu **Chính sách xung đột** cho phép chọn bản sửa
+   mới nhất thắng, server thắng hoặc client thắng. Nếu bằng thời gian, server thắng.
+5. Nhấn giữ task đã có trên server để mô phỏng máy B sửa và mở dialog so sánh
+   với bản server thật; chọn giữ local hoặc server.
+6. Menu có thống kê tổng số lần/thành công/thời gian trung bình/xung đột,
+   kiểm tra dữ liệu local-server và giả lập HTTP 500/timeout. Sau thử lỗi,
+   chọn **Bình thường** để server hoạt động lại.
+7. Xóa task, đồng bộ, rồi kéo trên B: task phải biến mất trên cả hai máy.
+
+WorkManager chạy khi có mạng, thử lại theo exponential backoff và đồng bộ định kỳ
+15 phút (Android có thể trì hoãn). Nút đồng bộ và thay đổi local xếp việc nối tiếp;
+không hủy request đang gửi. Kéo lỗi không được báo thành công. Bản sửa mới trong
+lúc request đang chạy được giữ PENDING để gửi tiếp. Demo Mock không đánh dấu bản
+local là đã được server xác nhận.
+
+API dùng `GET /tasks?updatedAfter=<seq>`, `PUT /tasks/:id`, trường JSON `completed`,
+`deleted`, `version`; HTTP 409 trả `{server: ...}`. Cursor là số thứ tự server,
+không phải timestamp thiết bị. Không còn gọi API batch `/tasks/sync`.
+
+Server này phục vụ demo: dữ liệu nằm trong RAM, mất khi restart; các endpoint
+`/admin/*` không có xác thực. Không đưa server này lên Internet để dùng production.
+Khi restart server, nên xóa dữ liệu của cả hai app/emulator rồi thử với dữ liệu mới
+để tránh cursor và trạng thái cũ. Thống kê được lưu tổng hợp trong SharedPreferences,
+không dùng bảng SyncLog của bản Midterm.
+
+### Trạng thái kiểm thử trong cloud
+
+- `npm ci`, `npm test`: thành công; kiểm thử HTTP thật bao phủ push/pull,
+  delta rỗng, xung đột 409, retry, xóa mềm, validation và giả lập lỗi/phục hồi.
+- Android chưa xác nhận build/test: cấu hình sẵn có yêu cầu Gradle 9.6/JDK 25;
+  Gradle tải và xác minh checksum thành công nhưng tải JDK qua `api.foojay.io`
+  bị proxy trả HTTP 403. Máy cloud cũng chưa có Android SDK.
+- Có thêm unit test cho chính sách xung đột; chưa chạy được vì chặn toolchain trên.
+  Cần chạy `gradlew.bat testDebugUnitTest assembleDebug` và kiểm tra hai emulator
+  trên máy có toolchain trước khi merge.

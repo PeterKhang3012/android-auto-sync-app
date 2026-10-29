@@ -24,11 +24,14 @@ interface TaskDao {
     @Query("UPDATE tasks SET isDeleted = 1, updatedAt = :timestamp, syncStatus = :syncStatus WHERE id = :taskId")
     suspend fun softDeleteTask(taskId: String, timestamp: Long, syncStatus: String = SyncStatus.PENDING.name)
 
-    @Query("SELECT * FROM tasks WHERE syncStatus = 'PENDING' OR syncStatus = 'FAILED'")
+    @Query("SELECT * FROM tasks WHERE syncStatus IN ('PENDING', 'FAILED', 'SYNCING')")
     suspend fun getPendingTasks(): List<TaskEntity>
 
     @Query("UPDATE tasks SET syncStatus = :status WHERE id = :taskId")
     suspend fun updateSyncStatus(taskId: String, status: String)
+
+    @Query("SELECT * FROM tasks")
+    suspend fun getAllIncludingDeleted(): List<TaskEntity>
 
     @Query("SELECT * FROM tasks WHERE updatedAt > :sinceTimestamp")
     suspend fun getTasksModifiedSince(sinceTimestamp: Long): List<TaskEntity>

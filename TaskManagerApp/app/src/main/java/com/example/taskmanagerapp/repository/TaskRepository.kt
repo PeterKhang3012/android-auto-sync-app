@@ -1,6 +1,8 @@
 package com.example.taskmanagerapp.repository
 
 import android.content.Context
+import androidx.room.withTransaction
+import com.example.taskmanagerapp.data.remote.toEntity
 import androidx.lifecycle.LiveData
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
@@ -37,24 +39,30 @@ class TaskRepository(
 
     // 3. Cập nhật trạng thái hoàn thành (Checkbox)
     suspend fun updateTask(task: TaskEntity) {
-        val updatedTask = task.copy(
-            syncStatus = SyncStatus.PENDING.name,
-            updatedAt = System.currentTimeMillis()
-        )
-        taskDao.updateTask(updatedTask)
+        val database = com.example.taskmanagerapp.data.local.TaskDatabase.getDatabase(context)
+        database.withTransaction {
+            val current = taskDao.getTaskById(task.id) ?: return@withTransaction
+            taskDao.updateTask(current.copy(
+                isCompleted = task.isCompleted,
+                syncStatus = SyncStatus.PENDING.name,
+                updatedAt = System.currentTimeMillis()
+            ))
+        }
         triggerSyncWork()
     }
 
     // 4. Chỉnh sửa chi tiết công việc (Tiêu đề, mô tả)
     suspend fun editTask(taskId: String, newTitle: String, newDescription: String?) {
-        val currentTask = taskDao.getTaskById(taskId) ?: return
-        val updatedTask = currentTask.copy(
-            title = newTitle,
-            description = newDescription,
-            syncStatus = SyncStatus.PENDING.name,
-            updatedAt = System.currentTimeMillis()
-        )
-        taskDao.updateTask(updatedTask)
+        val database = com.example.taskmanagerapp.data.local.TaskDatabase.getDatabase(context)
+        database.withTransaction {
+            val currentTask = taskDao.getTaskById(taskId) ?: return@withTransaction
+            taskDao.updateTask(currentTask.copy(
+                title = newTitle,
+                description = newDescription,
+                syncStatus = SyncStatus.PENDING.name,
+                updatedAt = System.currentTimeMillis()
+            ))
+        }
         triggerSyncWork()
     }
 
@@ -68,27 +76,21 @@ class TaskRepository(
         triggerSyncWork()
     }
 
-    // 6. Xử lý xung đột (Conflict Resolution: Chọn bản Local hay bản Server)
-    suspend fun resolveConflict(localTask: TaskEntity, keepLocal: Boolean, serverTitle: String, serverDescription: String?) {
-        if (keepLocal) {
-            // Giữ bản local và đánh dấu đồng bộ lại lên server với version mới
-            val updated = localTask.copy(
-                syncStatus = SyncStatus.PENDING.name,
-                updatedAt = System.currentTimeMillis(),
-                version = localTask.version + 1
-            )
-            taskDao.updateTask(updated)
-            triggerSyncWork()
-        } else {
-            // Ghi đè bằng bản Server
-            val updated = localTask.copy(
-                title = serverTitle,
-                description = serverDescription,
-                syncStatus = SyncStatus.SYNCED.name,
-                updatedAt = System.currentTimeMillis()
-            )
-            taskDao.updateTask(updated)
+    // Resolve using the complete server snapshot (version and tombstone included).
+    suspend fun resolveConflict(localTask: TaskEntity, keepLocal: Boolean, server: com.example.taskmanagerapp.data.remote.TaskDto) {
+        val database = com.example.taskmanagerapp.data.local.TaskDatabase.getDatabase(context)
+        database.withTransaction {
+            val current = taskDao.getTaskById(localTask.id) ?: return@withTransaction
+            // Do not overwrite an edit made after the dialog opened.
+            if (current != localTask) return@withTransaction
+            if (keepLocal) {
+                taskDao.insertTask(current.copy(version = server.version,
+                    updatedAt = System.currentTimeMillis(), syncStatus = SyncStatus.PENDING.name))
+            } else {
+                taskDao.insertTask(server.toEntity())
+            }
         }
+        triggerSyncWork()
     }
 
     // 7. Kích hoạt WorkManager đồng bộ (Constraints, Backoff Policy, enqueueUniqueWork)
@@ -108,7 +110,7 @@ class TaskRepository(
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             "TaskSyncUniqueWork",
-            ExistingWorkPolicy.REPLACE, // Nếu yêu cầu mới đến, thay thế hoặc chạy ngay
+            ExistingWorkPolicy.APPEND_OR_REPLACE, // Chạy nối tiếp, không hủy request đang gửi
             syncWorkRequest
         )
     }

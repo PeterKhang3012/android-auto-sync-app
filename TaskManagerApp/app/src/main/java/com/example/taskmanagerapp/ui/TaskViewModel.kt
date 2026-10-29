@@ -68,9 +68,9 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun resolveConflict(localTask: TaskEntity, keepLocal: Boolean, serverTitle: String, serverDescription: String?) {
+    fun resolveConflict(localTask: TaskEntity, keepLocal: Boolean, server: com.example.taskmanagerapp.data.remote.TaskDto) {
         viewModelScope.launch {
-            repository.resolveConflict(localTask, keepLocal, serverTitle, serverDescription)
+            repository.resolveConflict(localTask, keepLocal, server)
         }
     }
 

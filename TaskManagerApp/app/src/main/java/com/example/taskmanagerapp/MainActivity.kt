@@ -1,6 +1,12 @@
 package com.example.taskmanagerapp
 
 import android.content.Context
+import com.example.taskmanagerapp.data.remote.RetrofitClient
+import com.example.taskmanagerapp.data.remote.TaskDto
+import com.example.taskmanagerapp.data.remote.toDto
+import com.example.taskmanagerapp.sync.ConflictPolicy
+import com.example.taskmanagerapp.sync.SyncWorker
+import kotlinx.coroutines.CancellationException
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.Menu
@@ -65,6 +71,7 @@ class MainActivity : AppCompatActivity() {
         setupRecyclerView()
         setupListeners()
         observeData()
+        SyncWorker.schedulePeriodicSync(this)
     }
 
     private fun initViews() {
@@ -86,6 +93,10 @@ class MainActivity : AppCompatActivity() {
 
         val item = menu?.add(0, 1001, 0, if (isMock) "Chế độ: Demo Mock (BẬT)" else "Chế độ: Server Thật")
         item?.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
+        menu?.add(0, 1002, 1, "Chính sách xung đột")
+        menu?.add(0, 1003, 2, "Thống kê đồng bộ")
+        menu?.add(0, 1004, 3, "Giả lập lỗi server / timeout")
+        menu?.add(0, 1005, 4, "Kiểm tra dữ liệu local / server")
         return true
     }
 
@@ -98,6 +109,58 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, newStatus, Toast.LENGTH_SHORT).show()
             invalidateOptionsMenu()
             return true
+        }
+        val prefs = getSharedPreferences("task_sync_prefs", Context.MODE_PRIVATE)
+        when (item.itemId) {
+            1005 -> {
+                lifecycleScope.launch {
+                    try {
+                        val response = RetrofitClient.apiService.getDeltaTasks(0)
+                        val tasks = response.body()?.tasks
+                        check(response.isSuccessful && tasks != null) { "Server HTTP ${response.code()}" }
+                        val byId = tasks.associateBy { it.id }
+                        val dao = com.example.taskmanagerapp.data.local.TaskDatabase.getDatabase(this@MainActivity).taskDao()
+                        val mismatches = dao.getAllIncludingDeleted().count { local ->
+                            local.syncStatus == com.example.taskmanagerapp.data.local.SyncStatus.SYNCED.name &&
+                                byId[local.id]?.let { remote -> local.toDto().copy(seq = 0) != remote.copy(seq = 0) } != false
+                        }
+                        MaterialAlertDialogBuilder(this@MainActivity).setTitle("Kiểm tra dữ liệu")
+                            .setMessage("Trùng ID trên server: ${tasks.size - byId.size}\nBản local đã đồng bộ nhưng lệch server: $mismatches")
+                            .setPositiveButton("Đóng", null).show()
+                    } catch (cancelled: CancellationException) { throw cancelled }
+                    catch (error: Exception) { Toast.makeText(this@MainActivity, error.message, Toast.LENGTH_LONG).show() }
+                }
+                return true
+            }
+            1002 -> {
+                val policies = ConflictPolicy.values()
+                MaterialAlertDialogBuilder(this).setTitle("Chính sách xung đột")
+                    .setItems(arrayOf("Bản sửa mới nhất thắng", "Server thắng", "Client thắng")) { _, index ->
+                        prefs.edit().putString("conflict_policy", policies[index].name).apply()
+                    }.show()
+                return true
+            }
+            1003 -> {
+                val total = prefs.getLong("sync_count", 0L)
+                val avg = if (total == 0L) 0L else prefs.getLong("sync_duration_ms", 0L) / total
+                MaterialAlertDialogBuilder(this).setTitle("Thống kê đồng bộ thật")
+                    .setMessage("Số lần: $total; Thành công: ${prefs.getLong("sync_ok", 0L)}\nTrung bình: $avg ms\nXung đột: ${prefs.getLong("sync_conflicts", 0L)}\nLần cuối: đẩy ${prefs.getInt("last_pushed", 0)}, kéo ${prefs.getInt("last_pulled", 0)}")
+                    .setPositiveButton("Đóng", null).show()
+                return true
+            }
+            1004 -> {
+                MaterialAlertDialogBuilder(this).setTitle("Chỉ dùng với server demo")
+                    .setItems(arrayOf("Bình thường", "Lỗi HTTP 500", "Chậm 7 giây (timeout)")) { _, index ->
+                        lifecycleScope.launch {
+                            try {
+                                val response = RetrofitClient.apiService.chaos(if (index == 1) 1.0 else 0.0, if (index == 2) 7000L else 0L)
+                                Toast.makeText(this@MainActivity, if (response.isSuccessful) "Đã cập nhật server" else "Server HTTP ${response.code()}", Toast.LENGTH_SHORT).show()
+                            } catch (cancelled: CancellationException) { throw cancelled }
+                            catch (error: Exception) { Toast.makeText(this@MainActivity, error.message, Toast.LENGTH_LONG).show() }
+                        }
+                    }.show()
+                return true
+            }
         }
         return super.onOptionsItemSelected(item)
     }
@@ -178,7 +241,7 @@ class MainActivity : AppCompatActivity() {
                 WorkInfo.State.FAILED -> {
                     layoutSyncStatus.visibility = View.VISIBLE
                     progressBarSync.visibility = View.GONE
-                    tvSyncStatusMessage.text = "⚠ Đồng bộ thất bại (sẽ tự động thử lại khi có mạng)"
+                    tvSyncStatusMessage.text = "⚠ ${currentWork.outputData.getString("error") ?: "Đồng bộ thất bại"}"
                     layoutSyncStatus.postDelayed({
                         layoutSyncStatus.visibility = View.GONE
                     }, 4000)
@@ -203,13 +266,18 @@ class MainActivity : AppCompatActivity() {
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> {
-                        // Kích hoạt mô phỏng xung đột: Server có phiên bản khác với local
-                        showConflictResolutionDialog(
-                            localTask = task,
-                            serverTitle = "${task.title} (Bản đã sửa trên Web Server)",
-                            serverDescription = "Nội dung này được cập nhật từ thiết bị khác trên máy chủ lúc ${SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())}",
-                            serverUpdatedAt = System.currentTimeMillis() + 60000
-                        )
+                        lifecycleScope.launch {
+                            try {
+                                val response = RetrofitClient.apiService.simulateEdit(task.id)
+                                val server = response.body()
+                                if (response.isSuccessful && server != null) {
+                                    showConflictResolutionDialog(task, server)
+                                } else {
+                                    Toast.makeText(this@MainActivity, "Đồng bộ task lên server trước (HTTP ${response.code()})", Toast.LENGTH_LONG).show()
+                                }
+                            } catch (cancelled: CancellationException) { throw cancelled }
+                            catch (error: Exception) { Toast.makeText(this@MainActivity, error.message, Toast.LENGTH_LONG).show() }
+                        }
                     }
                     1 -> showEditTaskDialog(task)
                     2 -> showDeleteConfirmDialog(task)
@@ -281,9 +349,7 @@ class MainActivity : AppCompatActivity() {
     // Dialog giải quyết xung đột (Conflict Resolution Dialog)
     fun showConflictResolutionDialog(
         localTask: TaskEntity,
-        serverTitle: String,
-        serverDescription: String?,
-        serverUpdatedAt: Long
+        server: TaskDto
     ) {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_conflict_resolution, null)
         val dateFormat = SimpleDateFormat("HH:mm:ss dd/MM/yyyy", Locale.getDefault())
@@ -302,20 +368,20 @@ class MainActivity : AppCompatActivity() {
         tvLocalDesc.text = "Mô tả: ${localTask.description ?: "(Không có)"}"
         tvLocalTime.text = "Cập nhật lúc: ${dateFormat.format(Date(localTask.updatedAt))}"
 
-        tvServerTitle.text = "Tiêu đề: $serverTitle"
-        tvServerDesc.text = "Mô tả: ${serverDescription ?: "(Không có)"}"
-        tvServerTime.text = "Cập nhật lúc: ${dateFormat.format(Date(serverUpdatedAt))}"
+        tvServerTitle.text = "Tiêu đề: ${server.title}"
+        tvServerDesc.text = "Mô tả: ${server.description ?: "(Không có)"}"
+        tvServerTime.text = "Cập nhật lúc: ${dateFormat.format(Date(server.updatedAt))}"
 
         var dialog: AlertDialog? = null
 
         btnKeepLocal.setOnClickListener {
-            viewModel.resolveConflict(localTask, keepLocal = true, serverTitle = serverTitle, serverDescription = serverDescription)
+            viewModel.resolveConflict(localTask, keepLocal = true, server = server)
             dialog?.dismiss()
             Toast.makeText(this, "Đã chọn giữ bản Cục Bộ", Toast.LENGTH_SHORT).show()
         }
 
         btnKeepServer.setOnClickListener {
-            viewModel.resolveConflict(localTask, keepLocal = false, serverTitle = serverTitle, serverDescription = serverDescription)
+            viewModel.resolveConflict(localTask, keepLocal = false, server = server)
             dialog?.dismiss()
             Toast.makeText(this, "Đã ghi đè bằng bản Máy Chủ", Toast.LENGTH_SHORT).show()
         }

@@ -8,3 +8,7 @@ local.properties
 .externalNativeBuild
 .cxx
 Lab6_ex1/
+**/node_modules/
+.env
+.env.*
+!.env.example

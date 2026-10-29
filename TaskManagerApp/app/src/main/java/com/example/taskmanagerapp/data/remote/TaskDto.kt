@@ -8,20 +8,11 @@ data class TaskDto(
     @SerializedName("id") val id: String,
     @SerializedName("title") val title: String,
     @SerializedName("description") val description: String? = null,
-    @SerializedName("isCompleted") val isCompleted: Boolean = false,
+    @SerializedName(value = "completed", alternate = ["isCompleted"]) val isCompleted: Boolean = false,
     @SerializedName("updatedAt") val updatedAt: Long = System.currentTimeMillis(),
-    @SerializedName("isDeleted") val isDeleted: Boolean = false,
-    @SerializedName("version") val version: Long = 1L
-)
-
-data class SyncRequestDto(
-    @SerializedName("clientId") val clientId: String,
-    @SerializedName("changes") val changes: List<TaskDto>
-)
-
-data class SyncResponseDto(
-    @SerializedName("syncTime") val syncTime: Long,
-    @SerializedName("appliedIds") val appliedIds: List<String>
+    @SerializedName(value = "deleted", alternate = ["isDeleted"]) val isDeleted: Boolean = false,
+    @SerializedName("version") val version: Long = 0L,
+    @SerializedName("seq") val seq: Long = 0L
 )
 
 data class DeltaResponseDto(
@@ -50,3 +41,5 @@ fun TaskDto.toEntity(status: String = SyncStatus.SYNCED.name): TaskEntity = Task
     version = version,
     syncStatus = status
 )
+
+data class ConflictResponseDto(val server: TaskDto)

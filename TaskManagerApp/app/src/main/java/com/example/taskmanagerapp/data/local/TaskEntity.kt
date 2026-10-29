@@ -14,5 +14,5 @@ data class TaskEntity(
     val syncStatus: String = SyncStatus.PENDING.name,
     val updatedAt: Long = System.currentTimeMillis(),
     val isDeleted: Boolean = false,
-    val version: Long = 1L
+    val version: Long = 0L
 )
