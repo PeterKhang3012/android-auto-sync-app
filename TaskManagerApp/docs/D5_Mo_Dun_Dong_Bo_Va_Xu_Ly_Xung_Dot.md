@@ -2,8 +2,6 @@
 
 - **Dự án:** Android Auto Sync – TaskManagerApp.
 - **Người biên soạn:** PeterKhang3012.
-- **Trạng thái:** bản nháp để xem xét; chưa commit hoặc push trong lượt tạo tài liệu này.
-- **Phạm vi:** mô tả chức năng đã triển khai, dẫn chứng mã nguồn, sơ đồ thuật toán và tình huống minh họa. Không sửa code. Các ví dụ là diễn giải thuật toán và hướng dẫn thực hiện, không thay thế kết quả kiểm thử D6 hoặc số liệu D7.
 
 ## 1. Mục tiêu và đối chiếu yêu cầu
 

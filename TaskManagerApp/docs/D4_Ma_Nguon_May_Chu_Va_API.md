@@ -3,7 +3,6 @@
 - **Dự án:** Android Auto Sync – TaskManagerApp.
 - **Người biên soạn:** PeterKhang3012.
 - **Ngày đối chiếu và kiểm thử:** 30/10/2026.
-- **Phạm vi:** tài liệu API, mã nguồn tham chiếu, dữ liệu mẫu và hướng dẫn triển khai server demo. Tài liệu mô tả hành vi đang có, không bổ sung hoặc sửa mã nguồn.
 
 ## 1. Mục tiêu và minh chứng bàn giao
 
