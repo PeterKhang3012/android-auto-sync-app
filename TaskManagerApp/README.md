@@ -94,11 +94,7 @@ Lệnh chạy kiểm thử:
 4. File APK sau khi build nằm tại:
    `app/build/outputs/apk/debug/app-debug.apk`
 
-## Tích hợp server và đồng bộ từ project Midterm
-
-Giữ nguyên package `com.example.taskmanagerapp`, giao diện XML, Room và MVVM của
-teammate. Các file Compose/Room của Midterm không được chép đè vào app; chức năng
-đồng bộ được chuyển sang `sync/SyncEngine.kt` và dùng chung TaskEntity hiện tại.
+## Server
 
 ### Chạy trên máy tính
 

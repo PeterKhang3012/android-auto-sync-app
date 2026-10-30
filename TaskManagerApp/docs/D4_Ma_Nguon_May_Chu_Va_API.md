@@ -1,9 +1,7 @@
 # D4. Mã nguồn máy chủ và API
 
 - **Dự án:** Android Auto Sync – TaskManagerApp.
-- **Người biên soạn:** PeterKhang3012.
 - **Ngày đối chiếu và kiểm thử:** 30/10/2026.
-- **Phiên bản mã nguồn được mô tả:** nhánh `feature/my-sync`, commit `5e4e828`.
 - **Phạm vi:** tài liệu API, mã nguồn tham chiếu, dữ liệu mẫu và hướng dẫn triển khai server demo. Tài liệu mô tả hành vi đang có, không bổ sung hoặc sửa mã nguồn.
 
 ## 1. Mục tiêu và minh chứng bàn giao
@@ -309,7 +307,7 @@ Không diễn giải cơ chế này là “mọi lần gửi lại đều trả 
 
 ### 6.3. Chính sách xung đột phía Android
 
-- **LAST_WRITE_WINS (mặc định):** local thắng khi `local.updatedAt > server.updatedAt`; bằng nhau thì server thắng.
+- **LAST_WRITE_WINS (mặc định):** local thắng khi `local.updatedAt > server.updatedAt`, còn trường hợp `local.updatedAt <= server.updatedAt` thì server thắng.
 - **SERVER_WINS:** nhận toàn bộ bản server.
 - **CLIENT_WINS:** giữ nội dung local, cập nhật version cơ sở theo server rồi gửi lại.
 
@@ -409,18 +407,3 @@ Kết quả: **1 test tích hợp pass, 0 fail**, chạy HTTP thật qua loopbac
 - Reset và tạo task mới vẫn tăng seq trong cùng tiến trình.
 
 Test này không phải kiểm thử Android end-to-end. Độ trễ 25 ms trong test cũng không chứng minh timeout 5 giây của Android. Chưa xác nhận trong đợt này: chạy hai Android, phục hồi sau đóng app/reboot, độ bền lưu trữ qua restart server hoặc hiệu năng nhiều thiết bị. Không đưa các tình huống đó vào kết quả “đã pass” của D4.
-
-## 10. Hạn chế hiện tại và giải pháp đề xuất
-
-Các đề xuất dưới đây **chưa được thực hiện**; cần thống nhất trước mọi chỉnh sửa mã nguồn.
-
-| Vấn đề đã xác định | Ảnh hưởng | Giải pháp đề xuất |
-| --- | --- | --- |
-| Task và seq chỉ nằm trong RAM | Restart mất dữ liệu; client có cursor/version cũ có thể bỏ sót hoặc không nhận đúng dữ liệu sau restart | Lưu task, tombstone và cursor trong database/file bền vững; hoặc bổ sung cơ chế phát hiện server reset và full resync |
-| Admin reset xóa cứng Map mà không tạo tombstone | Client không tự xóa task cũ sau reset | Chỉ dùng reset cho demo; nếu cần xóa dùng chung, thiết kế thao tác phát tombstone hoặc cơ chế reset đồng bộ |
-| Chưa có xác thực/HTTPS, admin API mở | Bên truy cập được server có thể sửa dữ liệu hoặc bật chaos | Giới hạn demo trong môi trường thử; trước triển khai thật cần xác thực, phân quyền và TLS |
-| Validation còn tối thiểu | Title rỗng, cursor bất hợp lệ và version khởi tạo chưa được ràng buộc chặt | Bổ sung schema validation và hợp đồng lỗi thống nhất |
-| Chưa có request ID và kho lưu kết quả thao tác | Gửi lại bảo vệ bằng ID/version nhưng có thể nhận 409; không có bảo đảm exactly-once | Nếu cần, thiết kế idempotency key và lưu kết quả xử lý cùng transaction |
-| BASE_URL Android cố định | Thiết bị ở máy khác không tự trỏ tới server chung | Thống nhất cách cấu hình địa chỉ server trước khi chỉnh client |
-
-D4 hiện chứng minh API và mã nguồn server demo với kho dữ liệu dùng chung trong thời gian tiến trình hoạt động. Không coi đây là server production hoặc hệ thống đã lưu trữ bền vững.
