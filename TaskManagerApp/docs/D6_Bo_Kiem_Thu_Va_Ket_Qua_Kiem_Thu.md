@@ -238,11 +238,25 @@ A tạo task và đồng bộ → B đồng bộ để nhận cùng ID → A off
 
 Hệ thống phát hiện và xử lý xung đột theo chính sách đã công bố; hai thiết bị nhận được kết quả phù hợp khi đồng bộ.
 
-**Kết quả:** CHƯA KẾT LUẬN. Ảnh minh chứng hiển thị Medium có 3 task, trong đó một “Test case 6”; Small có 4 task, trong đó hai “Test case 6” ở 17:35 và 17:36. Chưa đối chiếu UUID/version, dữ liệu server và thời điểm pull hoàn tất, nên chưa xác nhận nguyên nhân hoặc kết quả xử lý xung đột.
+**Kết quả:** PASS trong phạm vi mô phỏng: API giả lập cập nhật bản server; dialog hiển thị hai phiên bản; thao tác chọn bản máy chủ cập nhật đúng dữ liệu local. Chưa kiểm thử hai thiết bị Android sửa độc lập và chưa xác nhận luồng tự xử lý HTTP 409 theo chính sách.
 
 **Minh chứng:**
 
-Chưa có ảnh hoặc log đầy đủ cho ca hai thiết bị sửa cùng ID.
+**Tạo test case 07:**
+
+![TC07](./images/TC07_tao_test_case.png)
+
+**Giữ task -> chọn mô phỏng xung đột**
+
+![TC07](./images/TC07_mo_phong_xung_dot.png)
+
+**dialog local/server**
+
+![TC07](./images/TC07_dialog.png)
+
+**Chọn bản máy chủ, sau khi chọn sẽ hiện đuôi [máy B]**
+
+![TC07](./images/TC07_chon_ban_may_chu.png)
 
 ### 2.8. TC08 — Xóa công việc khi ngoại tuyến
 
@@ -404,7 +418,7 @@ Báo cáo HTML instrumentation ở `app/build/reports/androidTests/connected/` c
 
 **Minh chứng:**
 
-Logcat tag `TC09`, lúc **01:14:21.779 ngày 31/10/2026** theo thời gian hiển thị trong log. JSON SUMMARY được giữ nguyên giá trị:
+Logcat tag `TC09`. JSON SUMMARY được giữ nguyên giá trị:
 
 ```json
 {
@@ -428,7 +442,7 @@ Logcat tag `TC09`, lúc **01:14:21.779 ngày 31/10/2026** theo thời gian hiể
 }
 ```
 
-Báo cáo HTML lớp `com.example.taskmanagerapp.TC09SyncBenchmarkTest`, tạo bởi Gradle 9.6.0 lúc **01:14:23 ngày 31/10/2026** theo thời gian ghi trong báo cáo:
+Báo cáo HTML lớp `com.example.taskmanagerapp.TC09SyncBenchmarkTest`, tạo bởi Gradle 9.6.0:
 
 ```text
 Tests: 1
@@ -438,5 +452,4 @@ Duration: 3.572s
 Successful: 100%
 ```
 
-Log SUMMARY đã có trong tài liệu trên Git và được định dạng JSON ở trên; số liệu được đối chiếu với báo cáo HTML. Chưa có ảnh TC09 hoặc file HTML/JSONL gốc trong thư mục minh chứng trên Git.
 

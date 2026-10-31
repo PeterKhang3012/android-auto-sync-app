@@ -199,99 +199,9 @@ Trả 204; xóa toàn bộ task trong RAM. **Không reset seq và không tắt c
 
 Timeout là lỗi chờ phản hồi ở client, không phải một mã HTTP mà server này chủ động trả.
 
-## 5. Dữ liệu mẫu và lệnh gọi thử
+## 5. Xử lý yêu cầu đồng bộ và gửi lại
 
-Các lệnh dưới đây dùng **PowerShell**, không cần tạo file JSON riêng. Chạy sau khi đã khởi động server. Mẫu sử dụng ID cố định để dễ theo dõi; với một lượt thử mới nên dùng server mới hoặc ID mới để tránh 409 từ dữ liệu thử trước.
-
-### 5.1. Khai báo và tạo task
-
-```powershell
-$base = 'http://localhost:3000'
-$id = '550e8400-e29b-41d4-a716-446655440000'
-$sample = @{
-    title = 'Hoan thanh bao cao D4'
-    description = 'Viet tai lieu API'
-    completed = $false
-    deleted = $false
-    version = 0
-    updatedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
-}
-$created = Invoke-RestMethod -Method Put -Uri "$base/tasks/$id" `
-    -ContentType 'application/json' -Body ($sample | ConvertTo-Json)
-$created | ConvertTo-Json
-```
-
-Kỳ vọng: HTTP 200, ID đúng đường dẫn, version 1 nếu ID chưa tồn tại.
-
-### 5.2. Đọc và lấy cursor
-
-```powershell
-$initial = Invoke-RestMethod -Uri "$base/tasks?updatedAfter=0"
-$initial | ConvertTo-Json -Depth 5
-$cursor = $initial.serverTime
-```
-
-### 5.3. Cập nhật hoàn thành
-
-```powershell
-$created.completed = $true
-$created.updatedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
-$updated = Invoke-RestMethod -Method Put -Uri "$base/tasks/$id" `
-    -ContentType 'application/json' -Body ($created | ConvertTo-Json)
-$updated | ConvertTo-Json
-```
-
-Giữ version của `$created` làm phiên bản cơ sở. Server trả version mới trong `$updated`; không tự tăng version trước khi gửi.
-
-### 5.4. Xóa mềm và lấy thay đổi
-
-```powershell
-$updated.deleted = $true
-$updated.updatedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
-$deleted = Invoke-RestMethod -Method Put -Uri "$base/tasks/$id" `
-    -ContentType 'application/json' -Body ($updated | ConvertTo-Json)
-$deleted | ConvertTo-Json
-Invoke-RestMethod -Uri "$base/tasks?updatedAfter=$cursor" | ConvertTo-Json -Depth 5
-```
-
-Kỳ vọng: task vẫn có trên server với `deleted: true`; GET từ cursor trước cập nhật trả bản mới nhất của task. App ẩn bản ghi đã xóa khỏi danh sách, không xóa dấu vết cần đồng bộ.
-
-### 5.5. Tái hiện xung đột phiên bản
-
-Tiếp tục dùng dữ liệu trên; task đã xóa mềm vẫn tồn tại trong Map nên có thể dùng để thử version:
-
-```powershell
-Invoke-RestMethod -Method Post -Uri "$base/admin/simulate-edit/$id" | ConvertTo-Json
-try {
-    Invoke-RestMethod -Method Put -Uri "$base/tasks/$id" `
-        -ContentType 'application/json' -Body ($deleted | ConvertTo-Json)
-} catch {
-    Write-Host 'Kiem tra HTTP status va response; ky vong 409 voi ban server.'
-    Write-Host $_.Exception.Message
-    Write-Host $_.ErrorDetails.Message
-}
-```
-
-Simulate-edit đã tăng version, nên PUT dùng `$deleted.version` cũ phải bị từ chối. Không coi mọi exception là minh chứng 409: kiểm tra mã lỗi và body thực tế để phân biệt lỗi mạng.
-
-### 5.6. Giả lập lỗi và phục hồi
-
-```powershell
-# Moi request task tra HTTP 500.
-Invoke-RestMethod -Method Post -Uri "$base/admin/chaos?failRate=1&delayMs=0"
-
-# Chuyen sang che do cham 7 giay de thu timeout Android.
-Invoke-RestMethod -Method Post -Uri "$base/admin/chaos?failRate=0&delayMs=7000"
-
-# Luon tat gia lap sau khi thu.
-Invoke-RestMethod -Method Post -Uri "$base/admin/chaos?failRate=0&delayMs=0"
-```
-
-Các lệnh trên cấu hình server; cần gọi API task hoặc chạy đồng bộ Android sau mỗi cấu hình để quan sát lỗi tương ứng.
-
-## 6. Xử lý yêu cầu đồng bộ và gửi lại
-
-### 6.1. Đẩy dữ liệu và nhận thay đổi
+### 5.1. Đẩy dữ liệu và nhận thay đổi
 
 1. Android tạo UUID khi thêm offline; các lần gửi lại giữ nguyên UUID đó.
 2. Client gửi PUT với nội dung task, dấu xóa mềm và version cơ sở.
@@ -299,13 +209,13 @@ Các lệnh trên cấu hình server; cần gọi API task hoặc chạy đồng
 4. Khi PUT thành công, client lấy version mới; chỉ đánh dấu SYNCED nếu bản local không bị sửa thêm trong lúc chờ request.
 5. Sau push, client GET từ `last_server_seq`, lưu delta vào Room và chỉ cập nhật cursor sau khi áp dụng pull thành công.
 
-### 6.2. Tránh bản ghi trùng và bảo vệ phiên bản
+### 5.2. Tránh bản ghi trùng và bảo vệ phiên bản
 
 `Map` lưu một bản ghi trên mỗi ID. Gửi lại cùng ID không sinh thêm một bản ghi mới có ID khác. Nếu PUT đã áp dụng nhưng phản hồi bị mất, request gửi lại với version cũ sẽ nhận 409 thay vì được áp dụng ngay lần nữa.
 
 Không diễn giải cơ chế này là “mọi lần gửi lại đều trả 200 giống nhau” hoặc “exactly-once”. Server không có bảng lưu request ID/response để nhận diện chính xác từng thao tác. Client phải xử lý 409, có thể cần gửi lại sau khi giải quyết xung đột. Hai lần tạo cùng nội dung nhưng dùng hai UUID khác vẫn tạo hai task riêng.
 
-### 6.3. Chính sách xung đột phía Android
+### 5.3. Chính sách xung đột phía Android
 
 - **LAST_WRITE_WINS (mặc định):** local thắng khi `local.updatedAt > server.updatedAt`, còn trường hợp `local.updatedAt <= server.updatedAt` thì server thắng.
 - **SERVER_WINS:** nhận toàn bộ bản server.
@@ -315,9 +225,9 @@ LWW thuận tiện để chọn bản sửa mới hơn, nhưng phụ thuộc đ�
 
 Phần này mô tả giao tiếp với API; thuật toán và minh chứng đầy đủ của mô-đun đồng bộ thuộc D5.
 
-## 7. Hướng dẫn cài đặt và triển khai demo
+## 6. Hướng dẫn cài đặt và triển khai demo
 
-### 7.1. Điều kiện
+### 6.1. Điều kiện
 
 - Node.js LTS kèm npm; Express 5 yêu cầu Node.js từ 18 trở lên.
 - Mạng để tải dependency theo lockfile; cổng 3000 chưa bị tiến trình khác chiếm.
@@ -331,7 +241,7 @@ node --version
 npm --version
 ```
 
-### 7.2. Chạy server bằng một lệnh
+### 6.2. Chạy server bằng một lệnh
 
 Sau khi clone/pull nhánh `feature/my-sync`, mở Terminal tại thư mục **TaskManagerApp**.
 
@@ -364,7 +274,7 @@ npm ci
 npm start
 ```
 
-### 7.3. Kiểm tra sẵn sàng
+### 6.3. Kiểm tra sẵn sàng
 
 Mở `http://localhost:3000/tasks?updatedAfter=0` trong trình duyệt hoặc dùng:
 
@@ -374,7 +284,7 @@ Invoke-RestMethod -Uri 'http://localhost:3000/tasks?updatedAfter=0' | ConvertTo-
 
 Server mới phải trả `{"tasks":[],"serverTime":0}`. Server đã có dữ liệu có thể trả danh sách/cursor khác. Truy cập `/` có thể trả 404 vì server không có trang chủ; đây không phải endpoint kiểm tra sức khỏe.
 
-## 8. Kết nối Android và nhiều thiết bị
+## 7. Kết nối Android và nhiều thiết bị
 
 Địa chỉ hiện nằm trong [RetrofitClient.kt](../app/src/main/java/com/example/taskmanagerapp/data/remote/RetrofitClient.kt): `http://10.0.2.2:3000/`. App có quyền Internet và cho phép HTTP cleartext trong manifest.
 
@@ -386,24 +296,3 @@ Server mới phải trả `{"tasks":[],"serverTime":0}`. Server đã có dữ li
 Quy trình minh họa: A tạo task và đồng bộ → B đồng bộ để nhận → A sửa/xóa mềm rồi đồng bộ → B đồng bộ lại để nhận bản mới hoặc dấu xóa. Khi thử xung đột, cho A sửa offline, B sửa và gửi trước, rồi A kết nối lại và gửi version cũ.
 
 Đây là hướng dẫn thực hiện; không phải khẳng định đã chạy thành công hai thiết bị trong đợt kiểm chứng D4 này.
-
-## 9. Kiểm chứng và giới hạn minh chứng
-
-Ngày 30/10/2026 chạy từ `TaskManagerApp/server`:
-
-```sh
-npm test
-```
-
-Kết quả: **1 test tích hợp pass, 0 fail**, chạy HTTP thật qua loopback trên cổng tạm. Test gồm nhiều bước xác nhận:
-
-- PUT tạo task, version mới và GET danh sách.
-- GET delta rỗng khi cursor đã cập nhật.
-- Simulate-edit và PUT version cũ trả 409 đúng bản server.
-- Gửi bản đã giải quyết xung đột và gửi lại version cũ.
-- Xóa mềm và lấy tombstone bằng delta.
-- Request không hợp lệ trả 400.
-- Chaos trả 500, delay 25 ms và phục hồi.
-- Reset và tạo task mới vẫn tăng seq trong cùng tiến trình.
-
-Test này không phải kiểm thử Android end-to-end. Độ trễ 25 ms trong test cũng không chứng minh timeout 5 giây của Android. Chưa xác nhận trong đợt này: chạy hai Android, phục hồi sau đóng app/reboot, độ bền lưu trữ qua restart server hoặc hiệu năng nhiều thiết bị. Không đưa các tình huống đó vào kết quả “đã pass” của D4.

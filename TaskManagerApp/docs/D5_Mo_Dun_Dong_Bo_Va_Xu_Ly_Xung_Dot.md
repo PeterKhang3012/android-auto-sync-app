@@ -5,7 +5,7 @@
 
 ## 1. Mục tiêu và đối chiếu yêu cầu
 
-Ứng dụng sử dụng Room làm nguồn dữ liệu cho giao diện. Người dùng thao tác cục bộ trước; WorkManager thực hiện trao đổi dữ liệu với server khi có mạng. Một phiên đồng bộ thực hiện **push trước, pull sau**.
+Ứng dụng sử dụng Room làm nguồn dữ liệu cho giao diện. Người dùng thao tác cục bộ trước; WorkManager thực hiện trao đổi dữ liệu với server khi có mạng. 
 
 | Yêu cầu D5 | Cơ chế hiện có | Mã nguồn minh chứng |
 | --- | --- | --- |
@@ -59,8 +59,6 @@ Các đường dẫn sau tính từ thư mục tài liệu hiện tại:
 | `last_sync_time` | SharedPreferences | Thời điểm phía client hoàn tất push/pull; khác cursor |
 | `conflict_policy` | SharedPreferences | Chính sách lựa chọn khi nhận 409; mặc định LWW |
 
-`version` không phải `updatedAt`, và `seq` không phải timestamp. Bản mới chưa gửi có version 0; PUT tạo mới được server chấp nhận sẽ trả version 1.
-
 ### 3.2. Chuyển trạng thái
 
 | Sự kiện | Trạng thái sau xử lý |
@@ -110,7 +108,7 @@ flowchart TD
 
 Nhấn nút đồng bộ thủ công cũng chỉ xếp việc có ràng buộc mạng, không bỏ qua WorkManager để gửi HTTP ngay lập tức. APPEND_OR_REPLACE không có nghĩa chỉ tồn tại một request trong hàng đợi; nhiều thao tác có thể tạo nhiều việc nối tiếp.
 
-WorkManager lưu việc để hệ thống quản lý qua thay đổi vòng đời và reboot trong phạm vi Android cho phép. Chưa có minh chứng thử nghiệm đóng app/reboot trong tài liệu này; không cam kết tự chạy trong mọi trường hợp force-stop hoặc giới hạn pin của nhà sản xuất.
+WorkManager lưu việc để hệ thống quản lý qua thay đổi vòng đời và reboot trong phạm vi Android cho phép.
 
 ## 5. Thuật toán một phiên đồng bộ
 
@@ -326,29 +324,3 @@ A gửi snapshot “Bản 1”. Trong lúc chờ, người dùng sửa local th�
 ### 8.6. Lỗi pull sau khi push thành công
 
 A push K thành công, K được đánh dấu SYNCED. GET delta sau đó lỗi 500. Engine không tiến cursor và worker retry; phiên chưa được coi thành công. K vẫn có thể SYNCED vì PUT đã xác nhận, còn dữ liệu mới từ thiết bị khác chưa chắc đã về A. Badge của một task không đồng nghĩa toàn bộ phiên push/pull đã hoàn tất.
-
-## 9. Cách tạo minh chứng chạy thử
-
-Đây là **kịch bản đề xuất**, chưa điền kết quả pass/fail thực tế cho Android.
-
-### 9.1. Chuẩn bị
-
-- Chạy một server dùng chung; xem [D4](D4_Ma_Nguon_May_Chu_Va_API.md) để cấu hình địa chỉ.
-- Mở A và B, tắt Demo Mock. Hai emulator cùng máy có thể dùng `10.0.2.2:3000`.
-- Nếu khác máy, cần thống nhất cấu hình địa chỉ LAN trước; tài liệu này không thay đổi BASE_URL.
-- Chọn chính sách trên thiết bị sẽ gửi sau, trước khi bắt đầu sync.
-
-### 9.2. Thử hai thiết bị sửa độc lập
-
-1. A tạo task và đồng bộ; B đồng bộ để nhận cùng task.
-2. Tắt mạng A; sửa title trên A.
-3. B sửa cùng task rồi đồng bộ thành công.
-4. Bật mạng A và bấm đồng bộ, hoặc chờ worker có ràng buộc mạng chạy.
-5. Đồng bộ lại B; so sánh nội dung cuối theo chính sách.
-6. Lặp lại với dữ liệu thử phù hợp cho Client Wins, Server Wins, LWW, kể cả xóa/sửa đồng thời.
-
-Chụp nội dung trước/sau trên A, B, response GET server và thống kê xung đột. Muốn minh chứng 409 trực tiếp cần log/request-response hoặc API call phù hợp; không kết luận có 409 chỉ từ ảnh dialog mô phỏng.
-
-### 9.3. Thử retry và gửi lại
-
-Dùng menu giả lập HTTP 500/timeout, thay đổi task, kích hoạt đồng bộ và quan sát. Tắt chaos sau thử, để WorkManager tiếp tục hoặc kích hoạt đồng bộ lại. Kiểm tra task cuối cùng và số ID trên server, không chỉ nhìn trạng thái việc.

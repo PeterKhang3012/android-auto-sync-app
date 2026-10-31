@@ -2,194 +2,261 @@
 
 - **Dự án:** Android Auto Sync – TaskManagerApp.
 - **Người biên soạn:** PeterKhang3012.
-- **Ngày thực nghiệm:** 30/10/2026; thời điểm ghi nhận UTC: `2026-10-30T05:49:25.935Z`.
-
+- **Mã kiểm thử:** [TC09SyncBenchmarkTest.kt](../app/src/androidTest/java/com/example/taskmanagerapp/TC09SyncBenchmarkTest.kt).
 ## 1. Mục tiêu thực nghiệm
 
-Đo thời gian gửi tuần tự N task và lấy lại toàn bộ task qua HTTP; xác định tỷ lệ request/lượt đo thành công và kiểm tra tập ID/nội dung sau truyền. Đồng thời phân biệt kết quả API đã đo với các đặc tính hệ thống Android chưa đo.
+Đánh giá khả năng đồng bộ nhiều bản ghi từ cơ sở dữ liệu Room lên server qua repository và WorkManager thực tế. Các chỉ tiêu gồm thời gian hoàn tất, tỷ lệ task được xác nhận đúng, số ID trùng và số bản ghi thiếu/thừa hoặc lệch dữ liệu.
 
-Kết quả lỗi, timeout và xung đột theo ca được trình bày trong [D6](D6_Bo_Kiem_Thu_Va_Ket_Qua_Kiem_Thu.md). Không dùng bảng hiệu năng không có lỗi bên dưới để suy ra tỷ lệ thành công khi mạng thực tế bất ổn.
-
-## 2. Môi trường
-
-| Thành phần | Giá trị thực tế |
-| --- | --- |
-| Hệ điều hành | Linux x86_64, kernel 6.18.55 |
-| Node.js / npm | v24.19.0 / 11.9.0 |
-| CPU được hệ điều hành báo cáo | AMD EPYC 9V74 80-Core Processor |
-| CPU logic được báo cáo | 5 |
-| RAM được báo cáo | 33.29 GiB |
-| Mã server | [Server.js](../server/Server.js), Express theo lockfile |
-| Kho dữ liệu | Map trong RAM của một tiến trình |
-| Đường truyền | HTTP `127.0.0.1`, cổng tạm; không qua mạng LAN/WAN |
-| Client đo | Node.js fetch, cùng tiến trình chạy harness với Express app |
-| Công cụ đo | Đồng hồ monotonic `performance.now()`, đơn vị ms |
-| Mức đồng thời | Một PUT tại một thời điểm, sau đó một GET |
-| Android emulator/Room/WorkManager | Không tham gia phép đo |
-
-CPU/RAM là thông tin hệ điều hành cung cấp, không chứng minh quota CPU/RAM được bảo đảm cho container. Client và server chia sẻ tiến trình/event loop nên kết quả không đại diện cho tải phân tán.
-
-## 3. Dữ liệu và thiết kế thí nghiệm
-
-- Ba mức N: **10, 50, 100 task**; mỗi mức **5 lượt**, tổng 15 lượt và 800 PUT trong vùng đo.
-- ID: `n<N>-r<lượt>-<i>`, không trùng trong lượt.
-- Task gồm title, description ngắn, completed=false, deleted=false, version=0 và timestamp mẫu cố định cộng chỉ số i. Timestamp dùng cho dữ liệu mẫu, không dùng đo thời gian thực thi.
-- Mỗi lượt xóa Map qua admin reset trước vùng đo. Reset không đưa vào thời gian; seq vẫn tăng trong tiến trình.
-- Chaos được tắt trước đo, không cấu hình lỗi ngẫu nhiên hoặc độ trễ giả lập cho vùng hiệu năng.
-- Có 10 PUT warm-up ngoài vùng đo; trước đó cùng tiến trình đã chạy 7 ca HTTP. Vì vậy đây là phép đo tiến trình đã hoạt động, không phải cold start.
-- Không đo xóa/cập nhật, conflict hoặc retry trong bảng hiệu năng; các thao tác đó thuộc kiểm thử chức năng D6.
-
-Các lượt đo theo thứ tự 10 → 50 → 100, không trộn ngẫu nhiên. Warm-up, JIT, tái sử dụng kết nối và tải máy có thể ảnh hưởng số liệu.
-
-## 4. Cách đo và công thức
-
-Một lượt:
-
-1. Reset Map, chuẩn bị dữ liệu.
-2. Ghi `t0`, lần lượt PUT N task; đọc JSON từng response và lưu làm tập kỳ vọng.
-3. Ghi `t1`, GET `/tasks?updatedAfter=0`, đọc JSON.
-4. Ghi `t2`, sau đó kiểm tra assertion và tính nhất quán ngoài vùng thời gian.
-
-Công thức:
+Thực nghiệm sử dụng luồng:
 
 ```text
-T_push = t1 - t0
-T_pull = t2 - t1
-T_total = t2 - t0
-Trung bình = tổng T của 5 lượt / 5
-Tỷ lệ PUT thành công = số PUT HTTP 200 / số PUT trong vùng đo × 100%
-Tỷ lệ lượt thành công = số lượt đủ HTTP đúng, N task, 0 trùng, 0 lệch / 15 × 100%
-Số ID trùng = số phần tử GET - số ID khác nhau trong GET
+Instrumentation test → TaskRepository → Room và WorkManager
+                                      → SyncEngine → Retrofit → server
+Đối chiếu độc lập: đọc Room + GET dữ liệu server + trạng thái WorkManager
 ```
 
-Số lệch: duyệt hợp hai tập ID kỳ vọng và nhận được. Một ID bị tính lệch nếu thiếu/thừa hoặc JSON task không bằng response PUT đã xác nhận, gồm version/seq và các trường nội dung. Harness dùng JSON.stringify trên response của cùng server, có cùng thứ tự trường; đây không phải bộ so sánh JSON chuẩn hóa dùng cho mọi hệ thống.
+Thời gian đo phản ánh cả quá trình tạo dữ liệu và xử lý đồng bộ, không chỉ tốc độ HTTP. Kết quả chức năng online/offline, đóng/mở app, timeout và xung đột được trình bày riêng trong [D6](D6_Bo_Kiem_Thu_Va_Ket_Qua_Kiem_Thu.md).
 
-Phép so sánh không gọi menu kiểm tra nhất quán trên Android. Nó kiểm tra hai chiều tập dữ liệu HTTP nên bao gồm cả ID thiếu/thừa.
+## 2. Môi trường thử nghiệm
 
-## 5. Kết quả tổng hợp
+| Thành phần | Thông tin ghi nhận |
+| --- | --- |
+| Máy thực nghiệm | Windows, chạy Android Studio và server Node.js |
+| Gradle | 9.6.0 theo báo cáo test |
+| Loại kiểm thử | Android instrumented test, AndroidJUnit4 |
+| Ứng dụng | Package com.example.taskmanagerapp, bản debug |
+| Thiết bị lượt 10 task | Small Phone, AVD API 37.0 |
+| Thiết bị lượt 50/100 task | Android emulator; chưa có MODEL/API cụ thể trong các dòng SUMMARY |
+| Database client | Room thật của ứng dụng, không dùng database in-memory thay thế |
+| Bộ lập lịch | WorkManager thật, yêu cầu mạng CONNECTED, manual unique work nối chuỗi |
+| Giao tiếp | Retrofit, JSON; BASE_URL hiện tại http://10.0.2.2:3000/ |
+| Server | Node.js/Express, cổng 3000, Map trong RAM |
+| Đồng hồ đo | SystemClock.elapsedRealtime(), đơn vị mili giây |
+| Polling kiểm chứng | Nghỉ khoảng 1 giây giữa các vòng; thời lượng vòng còn gồm đọc Room/work và GET |
+| Điều kiện trước đo | Demo Mock tắt, server truy cập được, không có task pending/failed/syncing hoặc manual work chưa kết thúc |
 
-Đơn vị thời gian: **ms**. Làm tròn 3 chữ số thập phân; trung bình tính từ giá trị gốc, nên tổng các số đã làm tròn có thể lệch 0.001 ms.
+## 3. Dữ liệu kiểm thử và phạm vi từng lượt
 
-| N task | Số lượt | Push TB | Pull TB | Tổng TB | Tổng nhỏ nhất | Tổng lớn nhất | Lượt đạt | ID trùng | ID lệch |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 10 | 5 | 19.997 | 1.903 | 21.900 | 19.309 | 26.575 | 5/5 (100%) | 0 | 0 |
-| 50 | 5 | 91.596 | 1.809 | 93.405 | 83.827 | 99.881 | 5/5 (100%) | 0 | 0 |
-| 100 | 5 | 165.948 | 1.821 | 167.769 | 152.701 | 180.645 | 5/5 (100%) | 0 | 0 |
+| Mức dữ liệu | Số lượt có kết quả | Nội dung nhóm dữ liệu |
+| --- | --- | --- |
+| 10 task | 1 | 10 ID riêng thuộc runId của lượt |
+| 50 task | 1 | 50 ID riêng thuộc runId của lượt |
+| 100 task | 1 | 100 ID riêng thuộc runId của lượt |
 
-- PUT thành công: **800/800 (100%)** trong vùng hiệu năng.
-- GET thành công: **15/15 (100%)** trong vùng hiệu năng.
-- Lượt đạt đầy đủ assertion: **15/15 (100%)**.
-- Mỗi lượt nhận đúng N task; không ghi nhận ID trùng hoặc ID/nội dung lệch.
-- Các tỷ lệ trên không bao gồm 7 ca cố tình tạo lỗi/xung đột, warm-up hoặc admin reset. Chúng cũng không phải tỷ lệ sync Android do app ghi nhận.
+Mỗi ID có dạng `<runId>-<index>`. Title chứa runId và chỉ số; description chứa N và index. Trạng thái completed xen kẽ theo chỉ số, deleted=false và version khởi tạo 0. Repository cấp updatedAt khi ghi dữ liệu và đặt trạng thái PENDING.
 
-## 6. Bảng số liệu từng lượt
+Trước mỗi lượt đo, dữ liệu/cache được xóa thủ công để chuẩn bị lượt mới. Bản thân hàm kiểm thử không thực hiện reset server hoặc xóa dữ liệu. Ba lượt lần lượt tạo 10, 50 và 100 task, tổng cộng 160 task đã tạo trong quá trình thực nghiệm; không có nghĩa cả 160 task cùng tồn tại sau lượt cuối.
+## 4. Cách thực hiện và đo lường
 
-| N task | Lượt | Push ms | Pull ms | Tổng ms | PUT 200 / tổng PUT | Task nhận | ID trùng | ID lệch |
+### 4.1. Chạy bài kiểm thử
+
+Từ `TaskManagerApp`, khi một emulator đã khởi động và server đang chạy:
+
+```powershell
+.\gradlew.bat connectedDebugAndroidTest `
+  "-Pandroid.testInstrumentationRunnerArguments.class=com.example.taskmanagerapp.TC09SyncBenchmarkTest" `
+  "-Pandroid.testInstrumentationRunnerArguments.tc09Enabled=true" `
+  "-Pandroid.testInstrumentationRunnerArguments.tc09N=10" `
+  "-Pandroid.testInstrumentationRunnerArguments.tc09TimeoutSeconds=180" `
+  --rerun-tasks --console=plain
+```
+
+Thay tc09N bằng 50 hoặc 100 cho mức tương ứng. Cần tc09Enabled=true để không bị SKIPPED. 
+
+### 4.2. Mốc đo
+
+1. Kiểm tra điều kiện trước đo và gọi GET server; bước này nằm ngoài completedMs.
+2. Ghi mốc t0 ngay trước khi tạo task đầu tiên qua repository.
+3. Tạo N task. Repository ghi Room và xếp work trong quá trình tạo; WorkManager có thể bắt đầu xử lý trước khi tạo xong toàn bộ nhóm.
+4. Ghi insertionMs sau khi tạo đủ N task, rồi xếp thêm một lượt sync.
+5. Poll Room, các manual work mới và GET server. Chỉ kết thúc thành công khi toàn bộ tiêu chí ở mục 4.3 đạt.
+6. Ghi completedMs, log chi tiết và SUMMARY. Test vẫn giữ lại dữ liệu để đối chiếu.
+
+### 4.3. Điều kiện xác nhận thành công
+
+Một task được verified khi:
+
+- Có ID tương ứng trong dữ liệu kỳ vọng, Room và server.
+- Title, description, completed và deleted khớp dữ liệu đã tạo.
+- Local mang trạng thái SYNCED.
+- Version server lớn hơn 0 và bằng version local.
+- updatedAt của local và server bằng nhau.
+
+Toàn lượt PASS khi verified=N, không có ID trùng, không có bản thiếu/thừa hoặc chưa khớp, và các manual work mới quan sát được đều SUCCEEDED.
+
+### 4.4. Công thức và ý nghĩa chỉ số
+
+```text
+completedMs = mốc xác nhận đủ điều kiện thành công - t0
+insertionMs = mốc tạo xong N task - t0
+Tỷ lệ task xác nhận đúng = verified / requested × 100%
+Tỷ lệ lượt PASS trong mẫu đo = số lượt PASS / số lượt đã thực sự chạy đo × 100%
+ID trùng = số bản server trong nhóm - số ID khác nhau trong nhóm
+```
+
+`mismatchedIds` đếm ID thiếu/thừa hoặc task chưa đạt điều kiện đối chiếu trong hợp tập ID của nhóm kỳ vọng, local và server. Không dùng số liệu menu kiểm tra dữ liệu toàn app thay cho chỉ số nhóm test.
+
+`completedMs` gồm tạo Room, thời gian xếp hàng và xử lý WorkManager, đồng bộ HTTP, cùng polling xác nhận. Không tách được thời gian từng thành phần từ SUMMARY. `insertionMs` là một phần của vùng đo; không cộng nó lần nữa vào completedMs hoặc coi phép trừ là thời gian HTTP thuần vì việc tạo và sync có thể chồng lấn.
+
+`observedElapsedMs` được ghi gần cuối bài đo, gồm thêm thời gian xử lý sau mốc thành công. Thời lượng test HTML và thời gian BUILD SUCCESSFUL của Gradle là các phạm vi khác, không thay thế completedMs.
+
+## 5. Bảng kết quả đo
+
+### 5.1. Thời gian và tỷ lệ xác nhận
+
+| Số task | Số lượt | Tạo dữ liệu insertionMs | Hoàn tất completedMs | Hoàn tất (giây) | observedElapsedMs | Task xác nhận đúng | Tỷ lệ task đúng | Kết quả |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 10 | 1 | 21.216 | 2.006 | 23.222 | 10/10 | 10 | 0 | 0 |
-| 10 | 2 | 24.740 | 1.836 | 26.575 | 10/10 | 10 | 0 | 0 |
-| 10 | 3 | 18.030 | 1.804 | 19.834 | 10/10 | 10 | 0 | 0 |
-| 10 | 4 | 18.403 | 2.158 | 20.561 | 10/10 | 10 | 0 | 0 |
-| 10 | 5 | 17.596 | 1.713 | 19.309 | 10/10 | 10 | 0 | 0 |
-| 50 | 1 | 97.676 | 2.206 | 99.881 | 50/50 | 50 | 0 | 0 |
-| 50 | 2 | 97.063 | 1.906 | 98.968 | 50/50 | 50 | 0 | 0 |
-| 50 | 3 | 95.239 | 1.619 | 96.858 | 50/50 | 50 | 0 | 0 |
-| 50 | 4 | 85.766 | 1.723 | 87.489 | 50/50 | 50 | 0 | 0 |
-| 50 | 5 | 82.235 | 1.592 | 83.827 | 50/50 | 50 | 0 | 0 |
-| 100 | 1 | 172.860 | 2.190 | 175.051 | 100/100 | 100 | 0 | 0 |
-| 100 | 2 | 178.696 | 1.949 | 180.645 | 100/100 | 100 | 0 | 0 |
-| 100 | 3 | 162.427 | 1.701 | 164.129 | 100/100 | 100 | 0 | 0 |
-| 100 | 4 | 151.047 | 1.654 | 152.701 | 100/100 | 100 | 0 | 0 |
-| 100 | 5 | 164.710 | 1.612 | 166.321 | 100/100 | 100 | 0 | 0 |
+| 10 | 1 | 131 ms | 2493 ms | 2.493 s | 2508 ms | 10/10 | 100% | PASS |
+| 50 | 1 | 108 ms | 2553 ms | 2.553 s | 2570 ms | 50/50 | 100% | PASS |
+| 100 | 1 | 1150 ms | 22964 ms | 22.964 s | 23120 ms | 100/100 | 100% | PASS |
 
-## 7. Phân tích
+Các giá trị là thời gian của từng lượt, **không phải trung bình nhiều lượt**. Tổng task xác nhận đúng là 160/160; tỷ lệ lượt PASS trong ba lượt đo đã chạy là 3/3. Đây không phải tỷ lệ HTTP request thành công hoặc xác suất thành công dài hạn.
 
-Trong mẫu này, tổng thời gian tăng khi số PUT tuần tự tăng. Push chiếm phần lớn thời gian vì mỗi task là một HTTP request riêng; pull chỉ là một GET trả toàn bộ N task. Không có API batch đang được đo.
+### 5.2. Tính nhất quán và trạng thái work
 
-Tổng trung bình mức 100 task bằng khoảng 7.66 lần mức 10 task trong bộ số liệu này. Không diễn giải thành quy luật tuyến tính hoặc khả năng mở rộng đã được chứng minh: chỉ có ba cỡ dữ liệu nhỏ, cùng tiến trình và không có tải đồng thời.
+| Số task | Local / server của nhóm | ID trùng | ID/nội dung lệch | Manual work | Lỗi cuối lượt |
+| --- | --- | --- | --- | --- | --- |
+| 10 | 10 / 10 | 0 | 0 | 11 SUCCEEDED | null |
+| 50 | 50 / 50 | 0 | 0 | 51 SUCCEEDED | null |
+| 100 | 100 / 100 | 0 | 0 | 101 SUCCEEDED | null |
 
-Một số lượt sau nhanh hơn lượt trước có thể chịu ảnh hưởng của JIT, kết nối và biến động lịch chạy; chưa có phép đo tách riêng để xác định nguyên nhân. Không suy ra tốc độ ổn định chỉ từ năm lượt.
+`error=null` là không có lỗi kết thúc được ghi trong SUMMARY; không dùng để kết luận không từng có retry hoặc lỗi trung gian. Không có số đếm request trung gian trong log này.
 
-Không có ID lệch trong vùng đo chứng minh dữ liệu PUT đã xác nhận có thể được GET lại đúng trong các lượt này. Nó không chứng minh hai thiết bị Android luôn hội tụ, dữ liệu tồn tại sau restart, hoặc mọi retry đều không gây tác dụng phụ.
+### 5.3. Định danh minh chứng
 
-## 8. Kết quả chức năng liên quan
+| Số task | Thời điểm SUMMARY theo Logcat ngày 31/10/2026 | RunId |
+| --- | --- | --- |
+| 10 | 01:14:21.779 | TC09-1793384058344-3f575532-3bc5-4ee4-848c-93251ed42727 |
+| 50 | 17:15:20.638 | TC09-1793441717386-d1cba48e-35d8-4840-b7d8-915bb1589510 |
+| 100 | 17:22:55.394 | TC09-1793442151194-c8d05352-d7ff-4c61-8f21-49d217201232 |
 
-Theo [D6](D6_Bo_Kiem_Thu_Va_Ket_Qua_Kiem_Thu.md): bộ npm test sẵn có pass 1 test tích hợp; 7 ca bổ sung pass, gồm version cũ trả 409, xóa mềm, HTTP 500/phục hồi, client timeout rồi gửi lại và delta rỗng.
+Đây là thời điểm ghi log, không phải mốc t0. Các timestamp JSON được giữ nguyên trong phụ lục; thời gian đo dùng đồng hồ monotonic, không lấy chênh lệch giờ hiển thị Logcat.
 
-Phần timeout bổ sung dùng delay server 200 ms và timeout client Node 30 ms. Sau khi server đã áp dụng request, retry nhận 409 và chỉ còn một task cùng ID. Đây không phải đo backoff hoặc retry tự động của WorkManager.
+## 6. Phân tích kết quả
 
-Build Android bị chặn khi tải JDK 25 từ api.foojay.io nhận HTTP 403. Chưa có kết quả thời gian sync Android, tỷ lệ sync Android hoặc thực nghiệm hai emulator trong đợt này.
+### 6.1. Thời gian đồng bộ
 
-## 9. Hạn chế và phạm vi kết luận
+Lượt 10 task hoàn tất trong 2.493 giây, lượt 50 task trong 2.553 giây, chênh 60 ms. Hai giá trị gần nhau chưa chứng minh chi phí đồng bộ 10 và 50 task tương đương. Với polling khoảng một giây và thời gian chờ WorkManager, khác biệt xử lý bên trong có thể không thể hiện đầy đủ ở mốc xác nhận.
 
-- Đo trên localhost, không có mất mạng thật, độ trễ LAN/WAN hoặc giới hạn pin Android.
-- Chưa đo Room, Flow/UI, thời gian xếp hàng WorkManager, reboot hoặc force-stop.
-- Server RAM mất dữ liệu/cursor khi restart; phép đo không đánh giá độ bền lưu trữ.
-- Nhiều thiết bị đồng thời và cập nhật/xóa xung đột không nằm trong vùng hiệu năng.
-- Dữ liệu nhỏ, năm lượt mỗi mức; không có percentile p95 đáng tin cậy hay phép đo stress.
-- Không có số liệu CPU/RAM tiêu thụ trong lúc sync; thông số máy không phải mức sử dụng.
-- Các thời gian báo cáo là của đợt cloud này; không áp dụng như cam kết hiệu năng trên máy người dùng.
-- Chưa có ảnh chụp Android hoặc log WorkManager; không coi hướng dẫn D6 là kết quả đã thực hiện.
+Lượt 100 task hoàn tất trong 22.964 giây, cao hơn rõ rệt so với hai lượt còn lại. Thời gian tạo dữ liệu cũng tăng lên 1150 ms, so với 108 ms của lượt 50 task. Việc 50 task được tạo nhanh hơn 10 task cho thấy số đo còn chịu ảnh hưởng của trạng thái chạy và lịch xử lý, không chỉ số lượng task.
 
-Kết luận: API server hoạt động đúng các assertion đã thực thi, và trong 15 lượt tuần tự 10/50/100 task không ghi nhận sai lệch dữ liệu HTTP. D7 hiện có số đo thực tế ở phạm vi API; chưa đủ dữ liệu để đánh giá đầy đủ hiệu năng và tính nhất quán của toàn hệ thống Android offline-first.
+### 6.2. Tỷ lệ thành công và nhất quán
 
-## Phụ lục A. Nguồn harness thực nghiệm
+Ba lượt đều đạt tiêu chí cuối: đủ task, đúng dữ liệu, local SYNCED, version/updatedAt khớp server và work hoàn tất. Không ghi nhận ID trùng hoặc bản lệch trong ba nhóm được đo. Kết quả thể hiện luồng Room → repository → WorkManager → server hoạt động trong các lượt thực nghiệm này.
 
-Đây là mã của harness tạm đã chạy để sinh 7 ca kiểm tra và bảng số liệu trên; được nhúng làm minh chứng, không thêm vào mã nguồn ứng dụng. Đường dẫn `/workspace/...` và `/tmp/...` là đường dẫn của môi trường cloud đã đo. File tạm không được coi là artifact Git cần tồn tại lâu dài.
+Tỷ lệ 100% chỉ mô tả mẫu đã đo. Không đại diện cho mọi điều kiện mất mạng, timeout, retry, nhiều thiết bị hoặc server restart. TC09 cũng không thay thế ca TC07 về hai thiết bị sửa cùng một task.
 
-Đã chạy bằng `node /tmp/d6-d7-server-experiment.cjs`; mã thoát 0. Harness đóng server trong finally. Khi tái lập ở đường dẫn khác, các đường dẫn tuyệt đối trong harness phải khớp nơi đặt repository và nơi ghi kết quả. Để tái lập số đo cần dùng môi trường và dependency tương ứng; không kỳ vọng số mili giây giống hệt.
+### 6.3. Đối chiếu D4–D6
 
-```javascript
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const { performance } = require('node:perf_hooks');
-const app = require('/workspace/android-auto-sync-app/TaskManagerApp/server/Server.js');
-(async () => {
- const server = app.listen(0, '127.0.0.1');
- await new Promise(resolve => server.once('listening', resolve));
- const base = `http://127.0.0.1:${server.address().port}`;
- const request = (path, method='GET', body, signal) => fetch(base + path, {
-  method, headers:{'Content-Type':'application/json'},
-  body: body === undefined ? undefined : JSON.stringify(body), signal
- });
- const make = i => ({title:`Task ${i}`,description:`D7 sample ${i}`,completed:false,deleted:false,version:0,updatedAt:1793318400000+i});
- const checks=[]; const rows=[];
- async function check(id, fn) { await fn(); checks.push({id,status:'PASS'}); console.log(`${id}: PASS`); }
- try {
-  await check('API-01',async()=>{const r=await request('/tasks/check','PUT',make(1));assert.equal(r.status,200);assert.equal((await r.json()).version,1);});
-  await check('API-02',async()=>{const r=await request('/tasks/check','PUT',make(1));assert.equal(r.status,409);const d=await(await request('/tasks')).json();assert.equal(d.tasks.length,1);});
-  await check('API-03',async()=>{await request('/admin/simulate-edit/check','POST');const r=await request('/tasks/check','PUT',{...make(1),version:1});assert.equal(r.status,409);assert.equal((await r.json()).server.version,2);});
-  await check('API-04',async()=>{const r=await request('/tasks/check','PUT',{...make(1),version:2,deleted:true});assert.equal(r.status,200);const d=await(await request('/tasks?updatedAfter=2')).json();assert.equal(d.tasks.length,1);assert.equal(d.tasks[0].deleted,true);});
-  await check('API-05',async()=>{await request('/admin/chaos?failRate=1','POST');assert.equal((await request('/tasks')).status,500);await request('/admin/chaos','POST');assert.equal((await request('/tasks')).status,200);});
-  await check('API-06',async()=>{await request('/admin/chaos?delayMs=200','POST');let aborted=false;try {await request('/tasks/timeout','PUT',make(2),AbortSignal.timeout(30));}catch(e){assert.equal(e.name,'TimeoutError');aborted=true;}assert.ok(aborted);await new Promise(r=>setTimeout(r,250));await request('/admin/chaos','POST');assert.equal((await request('/tasks/timeout','PUT',make(2))).status,409);const d=await(await request('/tasks')).json();assert.equal(d.tasks.filter(t=>t.id==='timeout').length,1);});
-  await check('API-07',async()=>{const d=await(await request('/tasks')).json();const empty=await(await request(`/tasks?updatedAfter=${d.serverTime}`)).json();assert.deepEqual(empty.tasks,[]);});
-  // Warm up HTTP and JSON paths; warm-up is excluded from measured trials.
-  for(let i=0;i<10;i++) await request(`/tasks/warm-${i}`,'PUT',make(i));
-  for(const n of [10,50,100]) for(let trial=1;trial<=5;trial++) {
-   await request('/admin/reset','POST');
-   const expected=new Map(); let successful=0;
-   const start=performance.now();
-   for(let i=0;i<n;i++) {
-    const id=`n${n}-r${trial}-${i}`;
-    const r=await request(`/tasks/${id}`,'PUT',make(i));
-    const task=await r.json();
-    if(r.status===200) {successful++;expected.set(id,task);}
-   }
-   const pushed=performance.now();
-   const response=await request('/tasks?updatedAfter=0');
-   const delta=await response.json();
-   const end=performance.now();
-   assert.equal(response.status,200);
-   const received=new Map(delta.tasks.map(t=>[t.id,t]));
-   const ids=new Set([...expected.keys(),...received.keys()]);
-   let inconsistent=0;
-   for(const id of ids) if(JSON.stringify(expected.get(id))!==JSON.stringify(received.get(id))) inconsistent++;
-   const row={n,trial,pushMs:pushed-start,pullMs:end-pushed,totalMs:end-start,successful,putAttempts:n,pullSuccessful:response.status===200,duplicates:delta.tasks.length-received.size,inconsistent,received:delta.tasks.length};
-   assert.equal(successful,n);assert.equal(row.received,n);assert.equal(row.duplicates,0);assert.equal(inconsistent,0);
-   rows.push(row);console.log('MEASURE '+JSON.stringify(row));
-  }
-  fs.writeFileSync('/tmp/d6-d7-results.json',JSON.stringify({date:new Date().toISOString(),node:process.version,platform:process.platform,arch:process.arch,cpu:os.cpus()[0]?.model,logicalCpus:os.cpus().length,memoryGiB:os.totalmem()/2**30,checks,rows},null,2));
- } finally { await new Promise(resolve=>server.close(resolve)); }
-})().catch(e=>{console.error(e);process.exitCode=1;});
+- D4 mô tả server dùng Map RAM: các lượt đo này không kiểm chứng dữ liệu tồn tại sau khi restart.
+- D5 mô tả push tối đa hai lượt trong một phiên và retry qua WorkManager: SUMMARY cho biết trạng thái cuối, không cho biết số phiên hoặc request đã dùng để hoàn tất.
+- D6 ghi TC09 10 task với completedMs=2493 và toàn bài test 3.572 giây; hai số không mâu thuẫn vì khác mốc đo. D7 bổ sung hai lượt 50 và 100 task, không thay đổi kết quả lượt 10 task.
+- Các phép đo API localhost trên Linux trước đây có phạm vi và môi trường khác. Không gộp chúng vào bảng Android này hoặc dùng để tính tốc độ chênh lệch trực tiếp.
+
+## 7. Hạn chế của thực nghiệm
+
+- Mỗi mức dữ liệu mới có một lượt; chưa có trung bình, độ lệch chuẩn hoặc đánh giá độ ổn định qua nhiều lần lặp.
+- Chưa xác nhận cùng model/cấu hình emulator và trạng thái tài nguyên cho cả ba lượt. Thiếu thông tin phần cứng và phiên bản công cụ đầy đủ.
+- Thời gian gồm tạo dữ liệu, hàng đợi, HTTP và polling; chưa tách được đóng góp của từng thành phần. GET kiểm chứng tạo thêm tải và có thể đọc cả dữ liệu server ngoài nhóm trước khi lọc.
+- Dữ liệu các lượt trước được giữ lại; quy mô kho server và Room nền có thể khác nhau giữa các lượt, nhưng chưa có log PREFLIGHT_OK đầy đủ để định lượng.
+- Periodic work có sẵn không bị test hủy; hoạt động nền có thể ảnh hưởng lịch xử lý. SUMMARY chỉ tổng hợp manual work mới quan sát được.
+- Test đối chiếu một nhóm dữ liệu local/server; không đo toàn bộ dữ liệu app, độ trễ cập nhật UI, hai thiết bị đồng thời hoặc hội tụ xung đột.
+- Chưa đo CPU/RAM tiêu thụ, thời gian reboot/force-stop, độ bền dữ liệu server hoặc hiệu năng LAN/WAN.
+- Không có số đếm HTTP lỗi/retry trung gian nên không suy ra tỷ lệ thành công trên mỗi request.
+- Chỉ mức lớn nhất 100 task và không có tải đồng thời; chưa đủ kết luận khả năng mở rộng hoặc giới hạn tải.
+
+## 8. Kết luận
+
+Trong ba lượt thực nghiệm Android với 10, 50 và 100 task, cả ba lượt đều PASS, xác nhận đúng 160/160 task, không ghi nhận ID trùng hoặc dữ liệu lệch trong nhóm thử. Thời gian hoàn tất lần lượt là **2.493, 2.553 và 22.964 giây** theo cùng định nghĩa đo bao gồm tạo dữ liệu, WorkManager và kiểm chứng server.
+
+Kết quả cho thấy mô-đun đồng bộ có thể xử lý nhiều bản ghi qua luồng ứng dụng thật trong điều kiện thực nghiệm đã ghi nhận. Lượt 100 task có thời gian cao hơn đáng kể nhưng chưa đủ dữ liệu để xác định nguyên nhân hoặc dự đoán hiệu năng dài hạn. Kết luận chỉ áp dụng ba lượt đo này; không mở rộng thành bảo đảm nhất quán giữa hai thiết bị, tự phục hồi mọi lỗi mạng hoặc lưu dữ liệu bền vững sau restart.
+
+## Phụ lục A. Log SUMMARY minh chứng
+
+Các JSON sau giữ nguyên giá trị của ba dòng SUMMARY. Chúng là căn cứ cho bảng kết quả, không phải dữ liệu mẫu giả định.
+
+### A.1. Lượt 10 task
+
+```json
+{
+  "event": "SUMMARY",
+  "runId": "TC09-1793384058344-3f575532-3bc5-4ee4-848c-93251ed42727",
+  "timestampMs": 1793384061779,
+  "status": "PASS",
+  "requested": 10,
+  "created": 10,
+  "verified": 10,
+  "successRatePercent": 100,
+  "completedMs": 2493,
+  "observedElapsedMs": 2508,
+  "insertionMs": 131,
+  "duplicateIds": 0,
+  "mismatchedIds": 0,
+  "workStates": "{SUCCEEDED=11}",
+  "lastObservation": "GET OK; expected=10 local=10 server=10",
+  "error": null,
+  "scope": "Only this runId group; no two-device or UI measurement"
+}
 ```
+
+### A.2. Lượt 50 task
+
+```json
+{
+  "event": "SUMMARY",
+  "runId": "TC09-1793441717386-d1cba48e-35d8-4840-b7d8-915bb1589510",
+  "timestampMs": 1793441720638,
+  "status": "PASS",
+  "requested": 50,
+  "created": 50,
+  "verified": 50,
+  "successRatePercent": 100,
+  "completedMs": 2553,
+  "observedElapsedMs": 2570,
+  "insertionMs": 108,
+  "duplicateIds": 0,
+  "mismatchedIds": 0,
+  "workStates": "{SUCCEEDED=51}",
+  "lastObservation": "GET OK; expected=50 local=50 server=50",
+  "error": null,
+  "scope": "Only this runId group; no two-device or UI measurement"
+}
+```
+
+### A.3. Lượt 100 task
+
+```json
+{
+  "event": "SUMMARY",
+  "runId": "TC09-1793442151194-c8d05352-d7ff-4c61-8f21-49d217201232",
+  "timestampMs": 1793442175394,
+  "status": "PASS",
+  "requested": 100,
+  "created": 100,
+  "verified": 100,
+  "successRatePercent": 100,
+  "completedMs": 22964,
+  "observedElapsedMs": 23120,
+  "insertionMs": 1150,
+  "duplicateIds": 0,
+  "mismatchedIds": 0,
+  "workStates": "{SUCCEEDED=101}",
+  "lastObservation": "GET OK; expected=100 local=100 server=100",
+  "error": null,
+  "scope": "Only this runId group; no two-device or UI measurement"
+}
+```
+
+### A.4. Báo cáo test lượt 10 task
+
+```text
+Class: com.example.taskmanagerapp.TC09SyncBenchmarkTest
+Tests: 1
+Failures: 0
+Skipped: 0
+Duration: 3.572s
+Successful: 100%
+Generated by Gradle 9.6.0 at Oct 31, 2026, 1:14:23 AM
+```
+
+Lượt 50/100 task có SUMMARY PASS nhưng chưa có HTML riêng đính kèm trong bộ minh chứng này. Logcat có thể lọc bằng `tag:TC09`; log đầy đủ nằm tại `files/tc09_logs/<runId>.jsonl` trong vùng dữ liệu private của app. Chi tiết cách chạy và lấy log nằm trong TC09 của D6.
