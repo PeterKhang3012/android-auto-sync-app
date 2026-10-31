@@ -232,11 +232,17 @@ Không tạo bản ghi trùng hoặc áp dụng thao tác ngoài ý muốn.
 
 **Cách thực hiện:**
 
-A tạo task và đồng bộ → B đồng bộ để nhận cùng ID → A offline và sửa task → B sửa chính task đó rồi đồng bộ → A có mạng lại và đồng bộ → B đồng bộ lại → so sánh kết quả với chính sách đã chọn. Không tạo hai task riêng chỉ có cùng tên.
+Giữ server chạy, bật mạng và tắt Demo Mock → tạo task rồi đồng bộ
+lên server → nhấn giữ task → chọn “Mô phỏng xung đột dữ liệu
+(Conflict Demo)” → quan sát bản local và bản server trong dialog
+→ chọn “Lấy bản Máy Chủ” → kiểm tra nội dung trên app và server.
 
 **Kết quả mong đợi:**
 
-Hệ thống phát hiện và xử lý xung đột theo chính sách đã công bố; hai thiết bị nhận được kết quả phù hợp khi đồng bộ.
+Server cập nhật task cùng ID với tiêu đề có đuôi “[máy B]” và tăng
+version. Dialog hiển thị hai phiên bản để so sánh. Sau khi chọn
+“Lấy bản Máy Chủ”, dữ liệu local được cập nhật theo bản server.
+
 
 **Kết quả:** PASS trong phạm vi mô phỏng: API giả lập cập nhật bản server; dialog hiển thị hai phiên bản; thao tác chọn bản máy chủ cập nhật đúng dữ liệu local. Chưa kiểm thử hai thiết bị Android sửa độc lập và chưa xác nhận luồng tự xử lý HTTP 409 theo chính sách.
 
