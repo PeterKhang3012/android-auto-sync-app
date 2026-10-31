@@ -2,137 +2,20 @@
 
 - **Dự án:** Android Auto Sync – TaskManagerApp.
 - **Người biên soạn:** PeterKhang3012.
-- **Phiên bản tài liệu đối chiếu trên Git:** nhánh `feature/my-sync`, commit `9f67ddd`. Kết quả cloud trước đó dựa trên `c6ef837`; commit của APK thực nghiệm chưa được ghi nhận.
-- **Thời gian thu thập kết quả:** 30–31/10/2026.
-- **Ngày cập nhật báo cáo:** 31/10/2026.
-- **Trạng thái:** bản chỉnh sửa cục bộ dựa trên tài liệu và ảnh đã có trên Git, bổ sung kết quả kiểm thử Android; chưa commit/push lần chỉnh sửa này.
-- **Phạm vi:** kết quả HTTP thực thi trong cloud; báo cáo HTML test Android và kết quả kiểm thử thủ công trên Windows. Không sửa mã nguồn, cấu hình hoặc test có sẵn.
 
-## 1. Quy ước kết quả
+# D6. Bộ kiểm thử và kết quả kiểm thử
 
-| Trạng thái | Ý nghĩa |
-| --- | --- |
-| PASS | Đã thực thi, các điều kiện xác nhận của ca kiểm thử đều đúng |
-| FAIL | Đã thực thi và có điều kiện xác nhận không đúng |
-| BLOCKED | Bị chặn bởi môi trường trước khi hoàn tất kiểm thử |
-| NOT RUN | Chưa có xác nhận đã thực thi; không suy ra PASS từ việc đã có code |
-| CHƯA KẾT LUẬN | Đã có quan sát/thử nghiệm nhưng chưa đủ thông tin xác định kết quả theo tiêu chí |
+## 1. Trạng thái build và test Android
 
-Không gộp số ca HTTP kiểm tra bổ sung với số test do `node --test` đăng ký. Không lấy tỷ lệ pass của server để đại diện cho toàn bộ hệ thống Android.
+### 1.1. Unit test trên Windows — PASS
 
-## 2. Môi trường và phạm vi kiểm thử
-
-### 2.1. Kiểm thử server trong cloud
-
-- Linux x86_64, kernel 6.18.55; Node.js v24.19.0, npm 11.9.0.
-- Express được cài theo [package-lock.json](../server/package-lock.json).
-- Server được import từ [Server.js](../server/Server.js), mở cổng tạm trên `127.0.0.1`.
-- HTTP thật qua loopback; kho Map RAM mới của tiến trình thử, không dùng server của teammate.
-- Có các request độc lập đóng vai client, không có Android emulator hoặc Room thực sự trong phép thử HTTP này.
-- Bộ test server và harness tạm chạy riêng; dữ liệu RAM của mỗi tiến trình không ảnh hưởng nhau.
-- Harness/log nằm tạm trong `/tmp`; nội dung nguồn và log được nhúng vào D6/D7 để minh chứng không phụ thuộc việc giữ thư mục tạm.
-
-### 2.2. Kiểm thử Android trên Windows
-
-- Máy Windows, project mở bằng Android Studio; chưa có phiên bản Android Studio, JDK và cấu hình phần cứng cụ thể.
-- Báo cáo HTML được tạo bởi **Gradle 9.6.0** ngày 30–31/10/2026.
-- Ảnh minh chứng hiển thị hai emulator: **Medium Phone API 37.0** và **Small Phone API 37.0**, app mở trên cả hai.
-- Hai emulator đã chạy được cùng lúc; kết quả kiểm thử hai thiết bị được đánh giá riêng theo từng ca.
-- Log Gradle xác nhận một lượt chạy 5 test trên Small Phone và 5 test trên Medium Phone. Một lượt TC09 riêng chạy trên Small Phone, với 1 test PASS và không bị bỏ qua.
-- Minh chứng Android gồm báo cáo HTML, log thực thi và ảnh trong [docs/images](./images). Ảnh TC01–TC06, TC08 đã có trên Git; chưa có file HTML/JSONL gốc trong thư mục minh chứng.
-
-## 3. Bộ kiểm thử đã có trong repository
-
-| Bộ kiểm thử | Nội dung | Kết quả đợt này |
-| --- | --- | --- |
-| [server/test/sync.test.js](../server/test/sync.test.js) | Tạo, delta, xung đột, gửi lại, tombstone, validation, chaos, reset | PASS: 1 test tích hợp, 0 fail |
-| [ConflictResolverTest.kt](../app/src/test/java/com/example/taskmanagerapp/sync/ConflictResolverTest.kt) | 2 test: LWW mới/cũ/bằng timestamp và chính sách client/server | PASS trên Windows: 2 test, 0 fail, 0 skipped; cloud vẫn BLOCKED |
-| [TaskDaoTest.kt](../app/src/androidTest/java/com/example/taskmanagerapp/TaskDaoTest.kt) | 4 test được định nghĩa trong source đối chiếu: insert/read, soft delete, lọc pending/failed, cập nhật trạng thái | PASS theo HTML: 8 lượt DAO, 0 fail, 0 skipped; log riêng xác nhận bộ 5 instrumented test chạy trên mỗi emulator |
-| [TC09SyncBenchmarkTest.kt](../app/src/androidTest/java/com/example/taskmanagerapp/TC09SyncBenchmarkTest.kt) | Room → repository → WorkManager → server, đối chiếu nhóm task | PASS trên Small Phone: 1 lượt, 10/10 task xác nhận đúng, 0 ID trùng/lệch |
-
-Tên test DAO `getPendingTasks_shouldReturnPendingAndFailedOnly` phản ánh tên cũ; dữ liệu test hiện không có bản SYNCING, trong khi DAO thực tế lấy cả SYNCING. Không coi bộ test này là minh chứng đã kiểm tra phục hồi task SYNCING.
-
-### 3.1. Lệnh và log test server
-
-Từ `TaskManagerApp/server`:
-
-```sh
-npm test
-```
-
-Log của lần chạy này:
-
-```text
-> server@1.0.0 test
-> node --test
-
-✔ push, delta, conflict, retry, tombstone and recovery use the Android contract (105.827996ms)
-ℹ tests 1
-ℹ suites 0
-ℹ pass 1
-ℹ fail 0
-ℹ cancelled 0
-ℹ skipped 0
-ℹ todo 0
-ℹ duration_ms 218.696557
-```
-
-Một test trên chứa nhiều assertion nhưng runner vẫn báo **1 test**, không phải nhiều test độc lập. Thời lượng runner là thời gian chạy bộ test, không phải thời gian đồng bộ Android.
-
-## 4. Ca kiểm thử HTTP bổ sung đã thực hiện
-
-Harness dùng Node.js `fetch`, `assert/strict` và cùng Express app đang có. Nguồn harness nằm trong phụ lục của [D7](D7_Bao_Cao_Thuc_Nghiem_Va_Danh_Gia.md). Các ca chạy nối tiếp trong một tiến trình.
-
-| ID | Tình huống và bước chính | Điều kiện xác nhận | Thực tế | Kết quả |
-| --- | --- | --- | --- | --- |
-| API-01 | PUT tạo ID `check`, version 0 | HTTP 200, version trả về 1 | Đúng cả hai điều kiện | PASS |
-| API-02 | Gửi lại cùng ID với version 0 | HTTP 409; GET toàn bộ chỉ có một task | 409; danh sách có 1 task | PASS |
-| API-03 | Simulate-edit ID trên, rồi PUT version 1 | HTTP 409, response server version 2 | 409; version 2 | PASS |
-| API-04 | PUT cùng ID, version 2, deleted=true; GET từ cursor 2 | 200; delta có đúng một tombstone | Đúng các điều kiện | PASS |
-| API-05 | Bật failRate=1, GET; tắt chaos, GET lại | Lần đầu 500; sau đó 200 | 500 rồi 200 | PASS |
-| API-06 | Delay 200 ms; PUT ID `timeout`, client timeout 30 ms; chờ 250 ms; tắt chaos và gửi lại version 0 | Client TimeoutError; retry 409; đúng một bản ghi ID đó | Đúng các điều kiện | PASS |
-| API-07 | GET lấy cursor hiện tại rồi GET delta bằng cursor đó | tasks rỗng | tasks=[] | PASS |
-
-API-06 kiểm tra một tình huống server nhận request trước lúc client ngừng chờ, không đại diện cho mọi dạng mất gói. Timeout thử là **30 ms**, không phải timeout 5 giây của Android. Việc gửi lại do harness chủ động thực hiện, chưa phải chứng minh WorkManager tự retry.
-
-Log ca bổ sung:
-
-```text
-API-01: PASS
-API-02: PASS
-API-03: PASS
-API-04: PASS
-API-05: PASS
-API-06: PASS
-API-07: PASS
-```
-
-Kết quả: **7/7 ca bổ sung PASS**. Đây là assertion của harness, không phải 7 test mới đã được thêm vào mã nguồn repository.
-
-## 5. Kiểm tra dữ liệu trong các lượt đo
-
-[D7](D7_Bao_Cao_Thuc_Nghiem_Va_Danh_Gia.md) có 15 lượt đo: 10/50/100 task, mỗi mức 5 lượt. Trong mỗi lượt, harness kiểm tra:
-
-1. Tất cả N PUT trả 200 và ghi lại response kỳ vọng.
-2. GET sau push trả 200 và đúng N task.
-3. Số ID trùng trong danh sách GET bằng 0.
-4. So sánh hai chiều tập ID và toàn bộ JSON response giữa dữ liệu PUT đã xác nhận và dữ liệu GET; số ID thiếu/thừa hoặc khác nội dung bằng 0.
-
-**15/15 lượt đạt các assertion trên**, tổng 800 PUT được xác nhận và 15 GET đo được thành công. Đây là kiểm tra dữ liệu HTTP, không phải đối chiếu hai database Room.
-
-## 6. Trạng thái build và test Android
-
-### 6.1. Unit test trên Windows — PASS
-
-Nguồn: HTML “Gradle Test Run :app:testDebugUnitTest”, tạo bởi Gradle 9.6.0 lúc **16:55:09, 30/10/2026** theo thời gian ghi trong báo cáo; HTML không chỉ rõ múi giờ.
+Nguồn: HTML “Gradle Test Run :app:testDebugUnitTest”, tạo bởi Gradle 9.6.0.
 
 | Lớp test | Số test | Fail | Skipped | Thời lượng theo báo cáo | Kết quả |
 | --- | --- | --- | --- | --- | --- |
 | ExampleUnitTest | 1 | 0 | 0 | 0.009 s | PASS; test mẫu |
 | ConflictResolverTest | 2 | 0 | 0 | 0.002 s | PASS |
 | Tổng theo trang summary | 3 | 0 | 0 | 0.976 s | 100% thành công |
-
-Tổng thời lượng summary không bằng tổng thời lượng từng lớp; giữ nguyên các số do báo cáo cung cấp, không tự sửa cho bằng nhau. Đây là thời gian chạy test, không phải thời gian đồng bộ.
 
 Trích xuất báo cáo HTML:
 
@@ -147,11 +30,9 @@ ExampleUnitTest: 1 test
 ConflictResolverTest: 2 tests
 ```
 
-Các test ConflictResolver kiểm tra LWW khi local mới/cũ/bằng thời gian server và lựa chọn theo chính sách client/server. Test hàm lựa chọn không chứng minh toàn bộ luồng 409, Room, network và WorkManager chạy đúng cùng nhau.
+### 1.2. Instrumented test — PASS theo báo cáo tổng hợp
 
-### 6.2. Instrumented test — PASS theo báo cáo tổng hợp
-
-Nguồn: HTML “Test Summary”, tạo bởi Gradle 9.6.0 lúc **17:08:15, 30/10/2026** theo thời gian ghi trong báo cáo; không chỉ rõ múi giờ.
+Nguồn: HTML “Test Summary”, tạo bởi Gradle 9.6.0 
 
 | Lớp test | Số lượt báo cáo | Fail | Skipped | Thời lượng | Kết quả |
 | --- | --- | --- | --- | --- | --- |
@@ -183,35 +64,9 @@ BUILD SUCCESSFUL in 50s
 
 Báo cáo tổng hợp là 10 lượt thực thi, không phải 10 test case khác nhau. Ký hiệu `- 17` được giữ nguyên từ log; không dùng nó thay API 37.0 hiển thị trong Device Manager. Thời gian 50 giây gồm build và chạy test, không phải thời gian đồng bộ.
 
-Instrumented test DAO kiểm tra database local riêng trên từng thiết bị, không tự chứng minh đồng bộ giữa hai database. Lượt TC09 riêng có 1 test PASS, 0 fail, 0 skipped, thời lượng toàn bài 3.572 giây; số liệu đồng bộ nằm ở mục 7.9.
+## 2. Test cases Android
 
-### 6.3. Build ứng dụng và khác biệt môi trường
-
-Log thực thi trên Windows cho thấy các tác vụ `compileDebugKotlin`, `compileDebugAndroidTestKotlin`, `packageDebug`, `packageDebugAndroidTest` và `connectedDebugAndroidTest` hoàn tất, kết thúc bằng `BUILD SUCCESSFUL`. Vì vậy có thể xác nhận build/đóng gói APK debug và APK test thành công trong luồng chạy instrumented test. Chưa có log gọi riêng tác vụ `assembleDebug`, không ghi rằng tác vụ riêng đó đã được chạy.
-
-Lượt TC09 sau khi file test được đặt đúng vị trí cũng kết thúc `BUILD SUCCESSFUL in 26s`. HTML xác nhận 1 test TC09 PASS, không SKIPPED. Lỗi `initializationError: Failed loading specified test class` ở lượt trước là sự cố nạp lớp của lượt cũ, không phải kết quả cuối cùng của TC09 và không phải assertion FAIL về dữ liệu đồng bộ.
-
-Trong cloud, lệnh sau đã bị chặn trước khi biên dịch/test:
-
-```sh
-GRADLE_USER_HOME=/workspace/.gradle \
-JAVA_TOOL_OPTIONS='-Dhttps.proxyHost=proxy -Dhttps.proxyPort=8080 -Dhttp.proxyHost=proxy -Dhttp.proxyPort=8080' \
-sh gradlew testDebugUnitTest assembleDebug --no-daemon --max-workers=2
-```
-
-Trích log cloud:
-
-```text
-Unable to download toolchain matching the requirements ({languageVersion=25, ...})
-from 'https://api.foojay.io/disco/v3.0/ids/.../redirect'
-Received status code 403 from server: Forbidden
-```
-
-Cloud vẫn BLOCKED bởi toolchain. Test đã chạy thành công trên Windows; kết quả này không có nghĩa vấn đề toolchain trong cloud đã được khắc phục. Không coi lỗi môi trường này là test assertion FAIL của ứng dụng.
-
-## 7. Test cases Android
-
-Mỗi ca trình bày thống nhất: **Cách thực hiện → Kết quả mong đợi → Kết quả → Minh chứng**. Kết quả được phân biệt theo xác nhận thủ công, ảnh đối chiếu hoặc test tự động. Không lấy kết quả HTTP cloud thay cho kết quả Android.
+Mỗi ca trình bày thống nhất: **Cách thực hiện → Kết quả mong đợi → Kết quả → Minh chứng**. Kết quả được phân biệt theo xác nhận thủ công, ảnh đối chiếu hoặc test tự động. 
 
 | Mã | Kịch bản | Kết quả hiện có |
 | --- | --- | --- |
@@ -225,7 +80,7 @@ Mỗi ca trình bày thống nhất: **Cách thực hiện → Kết quả mong 
 | TC08 | Xóa công việc khi ngoại tuyến | Đã xác nhận truyền dấu xóa; chưa đủ minh chứng không tải lại sau các lần sync tiếp |
 | TC09 | Đồng bộ nhiều bản ghi | PASS — một lượt 10 task trên Small Phone |
 
-### 7.1. TC01 — Tạo công việc khi có Internet
+### 2.1. TC01 — Tạo công việc khi có Internet
 
 **Cách thực hiện:**
 
@@ -251,7 +106,7 @@ Dữ liệu xuất hiện trên thiết bị và máy chủ.
 
 ![TC01](./images/TC01_ban_ghi_tren_server.png)
 
-### 7.2. TC02 — Thao tác công việc khi ngoại tuyến
+### 2.2. TC02 — Thao tác công việc khi ngoại tuyến
 
 **Cách thực hiện:**
 
@@ -269,7 +124,7 @@ Dữ liệu vẫn được lưu và hiển thị từ Room.
 
 ![TC02](./images/TC02_tao_task_khi_dang_tat_wifi.png)
 
-### 7.3. TC03 — Khôi phục kết nối mạng
+### 2.3. TC03 — Khôi phục kết nối mạng
 
 **Cách thực hiện:**
 
@@ -287,7 +142,7 @@ Thay đổi đã lưu khi offline được gửi lên server sau khi có mạng;
 
 ![TC03](./images/TC03.png)
 
-### 7.4. TC04 — Đóng ứng dụng rồi mở lại
+### 2.4. TC04 — Đóng ứng dụng rồi mở lại
 
 **Cách thực hiện:**
 
@@ -317,7 +172,7 @@ Dữ liệu cục bộ vẫn còn; tác vụ đồng bộ tiếp tục theo cơ 
 
 ![TC04](./images/TC04_ban_ghi_xuat_hien_tren_server.png)
 
-### 7.5. TC05 — Máy chủ tạm thời không phản hồi
+### 2.5. TC05 — Máy chủ tạm thời không phản hồi
 
 **Cách thực hiện:**
 
@@ -347,7 +202,7 @@ Giữ server chạy → bật độ trễ 7000 ms trong menu giả lập → t�
 
 ![TC05](./images/TC05_sau_khi_tat_timeout.png)
 
-### 7.6. TC06 — Đồng bộ cùng một thay đổi nhiều lần
+### 2.6. TC06 — Đồng bộ cùng một thay đổi nhiều lần
 
 **Cách thực hiện:**
 
@@ -373,7 +228,7 @@ Không tạo bản ghi trùng hoặc áp dụng thao tác ngoài ý muốn.
 
 ![TC06](./images/TC06_Ban_ghi_sau_khi_dong_bo.png)
 
-### 7.7. TC07 — Hai thiết bị sửa cùng một công việc
+### 2.7. TC07 — Hai thiết bị sửa cùng một công việc
 
 **Cách thực hiện:**
 
@@ -389,7 +244,7 @@ Hệ thống phát hiện và xử lý xung đột theo chính sách đã công 
 
 Chưa có ảnh hoặc log đầy đủ cho ca hai thiết bị sửa cùng ID.
 
-### 7.8. TC08 — Xóa công việc khi ngoại tuyến
+### 2.8. TC08 — Xóa công việc khi ngoại tuyến
 
 **Cách thực hiện:**
 
@@ -423,7 +278,7 @@ Bản ghi đã xóa không bị tải trở lại ngoài ý muốn sau khi đồ
 
 ![TC08](./images/TC08_ban_ghi_sau_khi_bat_wifi.png)
 
-### 7.9. TC09 — Đồng bộ nhiều bản ghi
+### 2.9. TC09 — Đồng bộ nhiều bản ghi
 
 **Cách thực hiện:**
 
@@ -582,3 +437,6 @@ Skipped: 0
 Duration: 3.572s
 Successful: 100%
 ```
+
+Log SUMMARY đã có trong tài liệu trên Git và được định dạng JSON ở trên; số liệu được đối chiếu với báo cáo HTML. Chưa có ảnh TC09 hoặc file HTML/JSONL gốc trong thư mục minh chứng trên Git.
+
