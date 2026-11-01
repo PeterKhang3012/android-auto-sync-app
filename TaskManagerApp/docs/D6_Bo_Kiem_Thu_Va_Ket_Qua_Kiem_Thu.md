@@ -3,8 +3,6 @@
 - **Dự án:** Android Auto Sync – TaskManagerApp.
 - **Người biên soạn:** PeterKhang3012.
 
-# D6. Bộ kiểm thử và kết quả kiểm thử
-
 ## 1. Trạng thái build và test Android
 
 ### 1.1. Unit test trên Windows — PASS
@@ -420,7 +418,7 @@ Báo cáo HTML instrumentation ở `app/build/reports/androidTests/connected/` c
 - Thời gian tạo dữ liệu: **131 ms**. Thời gian quan sát đến cuối bài đo: **2508 ms**.
 - Work quan sát được: **11 SUCCEEDED**, phù hợp 10 việc tự xếp khi insert và một việc test xếp thêm sau khi tạo xong.
 - Báo cáo HTML xác nhận **1 test, 0 failures, 0 skipped**, thời lượng toàn test **3.572 giây**. Thời lượng toàn test khác `completedMs` do gồm các bước ngoài vùng đo.
-- Kết quả chỉ áp dụng nhóm runId này trong một lượt 10 task; chưa có số đo cho 50/100 task hoặc đồng bộ hai thiết bị. Commit của lượt thực nghiệm chưa được ghi nhận.
+- Kết quả chỉ áp dụng nhóm runId này trong một lượt 10 task.
 
 **Minh chứng:**
 

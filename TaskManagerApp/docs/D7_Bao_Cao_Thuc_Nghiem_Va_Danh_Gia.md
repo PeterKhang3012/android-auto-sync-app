@@ -19,21 +19,20 @@ Thời gian đo phản ánh cả quá trình tạo dữ liệu và xử lý đ�
 
 ## 2. Môi trường thử nghiệm
 
-| Thành phần | Thông tin ghi nhận |
-| --- | --- |
-| Máy thực nghiệm | Windows, chạy Android Studio và server Node.js |
-| Gradle | 9.6.0 theo báo cáo test |
-| Loại kiểm thử | Android instrumented test, AndroidJUnit4 |
-| Ứng dụng | Package com.example.taskmanagerapp, bản debug |
-| Thiết bị lượt 10 task | Small Phone, AVD API 37.0 |
-| Thiết bị lượt 50/100 task | Android emulator; chưa có MODEL/API cụ thể trong các dòng SUMMARY |
-| Database client | Room thật của ứng dụng, không dùng database in-memory thay thế |
-| Bộ lập lịch | WorkManager thật, yêu cầu mạng CONNECTED, manual unique work nối chuỗi |
-| Giao tiếp | Retrofit, JSON; BASE_URL hiện tại http://10.0.2.2:3000/ |
-| Server | Node.js/Express, cổng 3000, Map trong RAM |
-| Đồng hồ đo | SystemClock.elapsedRealtime(), đơn vị mili giây |
-| Polling kiểm chứng | Nghỉ khoảng 1 giây giữa các vòng; thời lượng vòng còn gồm đọc Room/work và GET |
-| Điều kiện trước đo | Demo Mock tắt, server truy cập được, không có task pending/failed/syncing hoặc manual work chưa kết thúc |
+| Thành phần                   | Thông tin ghi nhận |
+|------------------------------| --- |
+| Máy thực nghiệm              | Windows, chạy Android Studio và server Node.js |
+| Gradle                       | 9.6.0 theo báo cáo test |
+| Loại kiểm thử                | Android instrumented test, AndroidJUnit4 |
+| Ứng dụng                     | Package com.example.taskmanagerapp, bản debug |
+| Thiết bị lượt 10/50/100 task | Small Phone, AVD API 37.0 |
+| Database client              | Room thật của ứng dụng, không dùng database in-memory thay thế |
+| Bộ lập lịch                  | WorkManager thật, yêu cầu mạng CONNECTED, manual unique work nối chuỗi |
+| Giao tiếp                    | Retrofit, JSON; BASE_URL hiện tại http://10.0.2.2:3000/ |
+| Server                       | Node.js/Express, cổng 3000, Map trong RAM |
+| Đồng hồ đo                   | SystemClock.elapsedRealtime(), đơn vị mili giây |
+| Polling kiểm chứng           | Nghỉ khoảng 1 giây giữa các vòng; thời lượng vòng còn gồm đọc Room/work và GET |
+| Điều kiện trước đo           | Demo Mock tắt, server truy cập được, không có task pending/failed/syncing hoặc manual work chưa kết thúc |
 
 ## 3. Dữ liệu kiểm thử và phạm vi từng lượt
 
@@ -45,7 +44,7 @@ Thời gian đo phản ánh cả quá trình tạo dữ liệu và xử lý đ�
 
 Mỗi ID có dạng `<runId>-<index>`. Title chứa runId và chỉ số; description chứa N và index. Trạng thái completed xen kẽ theo chỉ số, deleted=false và version khởi tạo 0. Repository cấp updatedAt khi ghi dữ liệu và đặt trạng thái PENDING.
 
-Trước mỗi lượt đo, dữ liệu/cache được xóa thủ công để chuẩn bị lượt mới. Bản thân hàm kiểm thử không thực hiện reset server hoặc xóa dữ liệu. Ba lượt lần lượt tạo 10, 50 và 100 task, tổng cộng 160 task đã tạo trong quá trình thực nghiệm; không có nghĩa cả 160 task cùng tồn tại sau lượt cuối.
+Trước mỗi lượt đo, thực hiện Wipe Data cho emulator rồi cài lại ứng dụng, làm mới dữ liệu local và trạng thái WorkManager. Server được giữ chạy liên tục, không reset nên dữ liệu các lượt trước vẫn được giữ trên server. Bản thân hàm kiểm thử không xóa dữ liệu hoặc reset server; mỗi lượt chỉ đối chiếu nhóm task có runId riêng. Ba lượt lần lượt tạo 10, 50 và 100 task, tổng cộng 160 task mới trong quá trình thực nghiệm.
 ## 4. Cách thực hiện và đo lường
 
 ### 4.1. Chạy bài kiểm thử
@@ -138,7 +137,7 @@ Các giá trị là thời gian của từng lượt, **không phải trung bìn
 
 Lượt 10 task hoàn tất trong 2.493 giây, lượt 50 task trong 2.553 giây, chênh 60 ms. Hai giá trị gần nhau chưa chứng minh chi phí đồng bộ 10 và 50 task tương đương. Với polling khoảng một giây và thời gian chờ WorkManager, khác biệt xử lý bên trong có thể không thể hiện đầy đủ ở mốc xác nhận.
 
-Lượt 100 task hoàn tất trong 22.964 giây, cao hơn rõ rệt so với hai lượt còn lại. Thời gian tạo dữ liệu cũng tăng lên 1150 ms, so với 108 ms của lượt 50 task. Việc 50 task được tạo nhanh hơn 10 task cho thấy số đo còn chịu ảnh hưởng của trạng thái chạy và lịch xử lý, không chỉ số lượng task.
+Lượt 100 task hoàn tất trong 22.964 giây, cao hơn rõ rệt so với hai lượt còn lại. Thời gian tạo dữ liệu cũng tăng lên 1150 ms, so với 108 ms của lượt 50 task. Việc 50 task được tạo nhanh hơn 10 task cho thấy số đo còn chịu ảnh hưởng của trạng thái chạy và lịch xử lý, không chỉ số lượng task. Một yếu tố có thể góp phần là server không được reset giữa các lượt (xem mục 7), nên lượt 100 task chạy khi server đã chứa dữ liệu của các lượt trước. Đây mới là giả thuyết, chưa được kiểm chứng.
 
 ### 6.2. Tỷ lệ thành công và nhất quán
 
@@ -156,9 +155,8 @@ Tỷ lệ 100% chỉ mô tả mẫu đã đo. Không đại diện cho mọi đi
 ## 7. Hạn chế của thực nghiệm
 
 - Mỗi mức dữ liệu mới có một lượt; chưa có trung bình, độ lệch chuẩn hoặc đánh giá độ ổn định qua nhiều lần lặp.
-- Chưa xác nhận cùng model/cấu hình emulator và trạng thái tài nguyên cho cả ba lượt. Thiếu thông tin phần cứng và phiên bản công cụ đầy đủ.
 - Thời gian gồm tạo dữ liệu, hàng đợi, HTTP và polling; chưa tách được đóng góp của từng thành phần. GET kiểm chứng tạo thêm tải và có thể đọc cả dữ liệu server ngoài nhóm trước khi lọc.
-- Dữ liệu các lượt trước được giữ lại; quy mô kho server và Room nền có thể khác nhau giữa các lượt, nhưng chưa có log PREFLIGHT_OK đầy đủ để định lượng.
+- Dù emulator được làm mới, dữ liệu server có thể tích lũy giữa các lượt. Các task cũ có thể được tải về Room khi đồng bộ; GET kiểm chứng cũng đọc toàn bộ dữ liệu server trước khi lọc nhóm. Vì vậy các lượt chưa có điều kiện dữ liệu nền hoàn toàn tương đương.
 - Periodic work có sẵn không bị test hủy; hoạt động nền có thể ảnh hưởng lịch xử lý. SUMMARY chỉ tổng hợp manual work mới quan sát được.
 - Test đối chiếu một nhóm dữ liệu local/server; không đo toàn bộ dữ liệu app, độ trễ cập nhật UI, hai thiết bị đồng thời hoặc hội tụ xung đột.
 - Chưa đo CPU/RAM tiêu thụ, thời gian reboot/force-stop, độ bền dữ liệu server hoặc hiệu năng LAN/WAN.

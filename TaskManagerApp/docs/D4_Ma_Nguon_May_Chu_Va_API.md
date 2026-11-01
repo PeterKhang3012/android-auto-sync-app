@@ -8,15 +8,15 @@
 
 Máy chủ cung cấp dữ liệu công việc dùng chung cho các thiết bị Android. Thiết bị có thể chỉnh sửa dữ liệu cục bộ khi mất mạng, sau đó gửi thay đổi lên máy chủ và lấy các bản ghi thay đổi về khi đồng bộ.
 
-| Nội dung D4 | Cách thực hiện hiện tại | Minh chứng |
-| --- | --- | --- |
-| API CRUD | GET truy vấn; PUT tạo/cập nhật và xóa mềm | [Server.js](../server/Server.js), mục 4–5 |
-| Dữ liệu dùng chung | Một `Map` trong tiến trình server, các thiết bị gọi cùng server | Mục 2 và 8 |
+| Nội dung D4 | Cách thực hiện hiện tại | Minh chứng                                                                                       |
+| --- | --- |--------------------------------------------------------------------------------------------------|
+| API CRUD | GET truy vấn; PUT tạo/cập nhật và xóa mềm | [Server.js](../server/Server.js), mục 4                                                          |
+| Dữ liệu dùng chung | Một `Map` trong tiến trình server, các thiết bị gọi cùng server | Mục 2 và 7                                                                                       |
 | Định danh bản ghi | UUID do Android tạo, dùng làm khóa `id` | [TaskEntity.kt](../app/src/main/java/com/example/taskmanagerapp/data/local/TaskEntity.kt), mục 3 |
-| Thông tin cập nhật | `version`, `updatedAt`, `seq` | Mục 3 và 6 |
-| Xử lý yêu cầu đồng bộ | PUT kiểm tra version; GET lọc delta; HTTP 409 trả bản server | Mục 4 và 6 |
-| Dữ liệu mẫu | JSON và các lệnh PowerShell tạo/sửa/xóa task | Mục 5 |
-| Hướng dẫn triển khai | Node.js, script chạy, cấu hình địa chỉ và kiểm tra kết nối | Mục 7–8 |
+| Thông tin cập nhật | `version`, `updatedAt`, `seq` | Mục 3 và 5 
+| Dữ liệu mẫu | JSON minh họa task và request/response API | 	Mục 4   |
+| Xử lý yêu cầu đồng bộ | PUT kiểm tra version; GET lọc delta; HTTP 409 trả bản server | Mục 4 và 5                                                                                       |
+| Hướng dẫn triển khai | Node.js, script chạy, cấu hình địa chỉ và kiểm tra kết nối | Mục 6–7                                                                                          |
 
 Không có endpoint DELETE riêng: xóa công việc được thực hiện bằng PUT với `deleted: true`. Không có API batch `/tasks/sync` trong phiên bản này.
 
