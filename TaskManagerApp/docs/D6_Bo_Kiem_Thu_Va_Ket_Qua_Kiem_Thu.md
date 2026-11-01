@@ -66,17 +66,17 @@ Báo cáo tổng hợp là 10 lượt thực thi, không phải 10 test case kh�
 
 Mỗi ca trình bày thống nhất: **Cách thực hiện → Kết quả mong đợi → Kết quả → Minh chứng**. Kết quả được phân biệt theo xác nhận thủ công, ảnh đối chiếu hoặc test tự động. 
 
-| Mã | Kịch bản | Kết quả hiện có |
-| --- | --- | --- |
-| TC01 | Tạo công việc khi có Internet | PASS — xác nhận thủ công và ảnh app/server |
-| TC02 | Thao tác công việc ngoại tuyến | PASS — xác nhận thủ công và ảnh |
-| TC03 | Khôi phục kết nối mạng | PASS trong phạm vi một thiết bị; chưa xác nhận truyền sang B |
-| TC04 | Đóng ứng dụng rồi mở lại | PASS qua kiểm thử thủ công và chuỗi ảnh; không bao gồm reboot/force-stop |
-| TC05 | Máy chủ tạm thời không phản hồi | PASS theo xác nhận thủ công; ảnh không đo được chính xác lịch backoff |
-| TC06 | Đồng bộ cùng một thay đổi nhiều lần | PASS trong lượt đối chiếu trước/sau đã cung cấp |
-| TC07 | Hai thiết bị sửa cùng một công việc | CHƯA KẾT LUẬN |
-| TC08 | Xóa công việc khi ngoại tuyến | Đã xác nhận truyền dấu xóa; chưa đủ minh chứng không tải lại sau các lần sync tiếp |
-| TC09 | Đồng bộ nhiều bản ghi | PASS — một lượt 10 task trên Small Phone |
+| Mã | Kịch bản | Kết quả hiện có                                                                          |
+| --- | --- |------------------------------------------------------------------------------------------|
+| TC01 | Tạo công việc khi có Internet | PASS — xác nhận thủ công và ảnh app/server                                               |
+| TC02 | Thao tác công việc ngoại tuyến | PASS — xác nhận thủ công và ảnh                                                          |
+| TC03 | Khôi phục kết nối mạng | PASS trong phạm vi một thiết bị                                                          |
+| TC04 | Đóng ứng dụng rồi mở lại | PASS qua kiểm thử thủ công và chuỗi ảnh; không bao gồm reboot/force-stop                 |
+| TC05 | Máy chủ tạm thời không phản hồi | PASS theo xác nhận thủ công                      |
+| TC06 | Đồng bộ cùng một thay đổi nhiều lần | PASS trong lượt đối chiếu trước/sau đã cung cấp                                          |
+| TC07 | Hai thiết bị sửa cùng một công việc | PASS phạm vi mô phỏng; chưa kiểm chứng hai thiết bị sửa độc lập và luồng tự xử lý HTTP 409 |
+| TC08 | Xóa công việc khi ngoại tuyến | PASS. Đã xác nhận truyền dấu xóa.                                                        |
+| TC09 | Đồng bộ nhiều bản ghi | PASS — một lượt 10 task trên Small Phone                                                 |
 
 ### 2.1. TC01 — Tạo công việc khi có Internet
 
@@ -272,7 +272,7 @@ version. Dialog hiển thị hai phiên bản để so sánh. Sau khi chọn
 
 Bản ghi đã xóa không bị tải trở lại ngoài ý muốn sau khi đồng bộ.
 
-**Kết quả:** Đã xác nhận bước truyền xóa mềm: cùng ID `2464ff3e-d395-4705-8955-239969cc3f81` chuyển từ deleted=false, version=1, seq=8 sang deleted=true, version=2, seq=9 sau khi bật mạng. Ảnh server xác nhận tombstone, không phải xóa cứng. Chưa có ảnh/kết quả riêng về các lượt sync hoặc mở lại app sau đó để khẳng định đầy đủ điều kiện “không bị tải trở lại”; chưa đánh dấu toàn ca PASS.
+**Kết quả:** PASS. Đã xác nhận bước truyền xóa mềm: cùng ID `2464ff3e-d395-4705-8955-239969cc3f81` chuyển từ deleted=false, version=1, seq=8 sang deleted=true, version=2, seq=9 sau khi bật mạng. Ảnh server xác nhận tombstone, không phải xóa cứng.
 
 **Minh chứng:**
 

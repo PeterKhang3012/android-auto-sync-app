@@ -13,7 +13,7 @@ Máy chủ cung cấp dữ liệu công việc dùng chung cho các thiết bị
 | API CRUD | GET truy vấn; PUT tạo/cập nhật và xóa mềm | [Server.js](../server/Server.js), mục 4                                                          |
 | Dữ liệu dùng chung | Một `Map` trong tiến trình server, các thiết bị gọi cùng server | Mục 2 và 7                                                                                       |
 | Định danh bản ghi | UUID do Android tạo, dùng làm khóa `id` | [TaskEntity.kt](../app/src/main/java/com/example/taskmanagerapp/data/local/TaskEntity.kt), mục 3 |
-| Thông tin cập nhật | `version`, `updatedAt`, `seq` | Mục 3 và 5 
+| Thông tin cập nhật | `version`, `updatedAt`, `seq` | Mục 3 và 5 |
 | Dữ liệu mẫu | JSON minh họa task và request/response API | 	Mục 4   |
 | Xử lý yêu cầu đồng bộ | PUT kiểm tra version; GET lọc delta; HTTP 409 trả bản server | Mục 4 và 5                                                                                       |
 | Hướng dẫn triển khai | Node.js, script chạy, cấu hình địa chỉ và kiểm tra kết nối | Mục 6–7                                                                                          |
@@ -167,7 +167,7 @@ Response xung đột ví dụ:
 }
 ```
 
-Server trả bản hiện tại, không tự quyết định client/server thắng. Chính sách đó nằm ở client, mô tả trong mục 6.
+Server trả bản hiện tại, không tự quyết định client/server thắng. Chính sách đó nằm ở client, mô tả trong mục 5.
 
 ### 4.4. POST /admin/simulate-edit/:id
 
