@@ -83,16 +83,52 @@ Lệnh chạy kiểm thử:
 
 ---
 
-## 🚀 5. Hướng dẫn Build & Chạy
+## 🚀 5. Hướng dẫn Build & Chạy Ứng dụng Android (Deliverable D3)
 
-1. Mở dự án trong **Android Studio**.
-2. Đồng bộ Gradle (Sync Project with Gradle Files).
-3. Biên dịch dự án:
-   ```bash
-   ./gradlew assembleDebug
-   ```
-4. File APK sau khi build nằm tại:
-   `app/build/outputs/apk/debug/app-debug.apk`
+- **Người phụ trách**: Người A (Android Client Lead)
+- **Repository Git**: `https://github.com/PeterKhang3012/android-auto-sync-app.git`
+- **Nhánh chính**: `feature/my-sync` (hoặc `task-setup`)
+- **Thư mục source code**: `TaskManagerApp/`
+
+### 5.1. Yêu cầu môi trường phát triển
+- **Android Studio**: Bản Hedgehog (2023.1.1) trở lên (khuyên dùng Ladybug / Koala).
+- **JDK**: JDK 17 hoặc JDK 21 (được tích hợp sẵn trong Android Studio).
+- **Android SDK**: Compile SDK 34, Min SDK 26.
+- **Thiết bị**: Máy ảo Android Emulator (khuyên dùng Pixel 6a, Android 14) hoặc điện thoại thật Android 8.0+.
+
+### 5.2. Chạy ứng dụng qua Android Studio (Giao diện trực quan)
+1. Khởi động **Android Studio**, chọn **Open** và dẫn tới thư mục `TaskManagerApp`.
+2. Chờ ứng dụng tự động tải thư viện và đồng bộ Gradle (Gradle Sync) thành công.
+3. Bật máy ảo trong **Device Manager** (hoặc cắm điện thoại đã bật USB Debugging).
+4. Chọn cấu hình chạy là `app`, bấm nút **Run (▶)** hoặc phím tắt `Shift + F10`.
+
+### 5.3. Biên dịch và cài đặt bằng dòng lệnh (Gradle CLI)
+Mở cửa sổ Terminal tại thư mục `TaskManagerApp`:
+- **Biên dịch file APK Debug:**
+  - *Trên Windows (PowerShell / Android Studio Terminal)*:
+    ```powershell
+    .\gradlew.bat assembleDebug
+    ```
+  - *Trên Windows (CMD cũ)*:
+    ```cmd
+    gradlew.bat assembleDebug
+    ```
+  - *Trên macOS / Linux*:
+    ```bash
+    ./gradlew assembleDebug
+    ```
+  - File APK sau khi build nằm tại: `app/build/outputs/apk/debug/app-debug.apk`
+
+- **Cài đặt APK vào thiết bị qua ADB:**
+  ```powershell
+  adb install -r app/build/outputs/apk/debug/app-debug.apk
+  ```
+
+- **Chạy kiểm thử tự động (Unit Test / Room DAO Test):**
+  ```powershell
+  .\gradlew.bat testDebugUnitTest
+  .\gradlew.bat connectedAndroidTest
+  ```
 
 ## Server
 
