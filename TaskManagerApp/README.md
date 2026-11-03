@@ -68,41 +68,26 @@
 
 ---
 
-## 🧪 4. Kiểm thử tự động (Deliverable D6)
-
-Bộ kiểm thử Room DAO đã được hiện thực trong `app/src/androidTest/java/com/example/taskmanagerapp/TaskDaoTest.kt`:
-- `insertAndGetTaskById`: Kiểm tra tính toàn vẹn khi thêm và đọc bản ghi.
-- `softDeleteTask_shouldHideFromGetAllTasks`: Kiểm tra xóa logic (ẩn khỏi UI nhưng vẫn còn trong DB để đồng bộ).
-- `getPendingTasks_shouldReturnPendingAndFailedOnly`: Kiểm tra bộ lọc các tác vụ cần đồng bộ.
-- `updateSyncStatus_shouldUpdateCorrectly`: Kiểm tra chuyển đổi trạng thái đồng bộ.
-
-Lệnh chạy kiểm thử:
-```bash
-./gradlew connectedAndroidTest
-```
-
----
-
-## 🚀 5. Hướng dẫn Build & Chạy Ứng dụng Android (Deliverable D3)
+## 🚀 4. Hướng dẫn Build & Chạy Ứng dụng Android (Deliverable D3)
 
 - **Người phụ trách**: Người A (Android Client Lead)
 - **Repository Git**: `https://github.com/PeterKhang3012/android-auto-sync-app.git`
 - **Nhánh chính**: `feature/my-sync` (hoặc `task-setup`)
 - **Thư mục source code**: `TaskManagerApp/`
 
-### 5.1. Yêu cầu môi trường phát triển
+### 4.1. Yêu cầu môi trường phát triển
 - **Android Studio**: Bản Hedgehog (2023.1.1) trở lên (khuyên dùng Ladybug / Koala).
 - **JDK**: JDK 17 hoặc JDK 21 (được tích hợp sẵn trong Android Studio).
 - **Android SDK**: Compile SDK 34, Min SDK 26.
 - **Thiết bị**: Máy ảo Android Emulator (khuyên dùng Pixel 6a, Android 14) hoặc điện thoại thật Android 8.0+.
 
-### 5.2. Chạy ứng dụng qua Android Studio (Giao diện trực quan)
+### 4.2. Chạy ứng dụng qua Android Studio (Giao diện trực quan)
 1. Khởi động **Android Studio**, chọn **Open** và dẫn tới thư mục `TaskManagerApp`.
 2. Chờ ứng dụng tự động tải thư viện và đồng bộ Gradle (Gradle Sync) thành công.
 3. Bật máy ảo trong **Device Manager** (hoặc cắm điện thoại đã bật USB Debugging).
 4. Chọn cấu hình chạy là `app`, bấm nút **Run (▶)** hoặc phím tắt `Shift + F10`.
 
-### 5.3. Biên dịch và cài đặt bằng dòng lệnh (Gradle CLI)
+### 4.3. Biên dịch và cài đặt bằng dòng lệnh (Gradle CLI)
 Mở cửa sổ Terminal tại thư mục `TaskManagerApp`:
 - **Biên dịch file APK Debug:**
   - *Trên Windows (PowerShell / Android Studio Terminal)*:
@@ -217,6 +202,9 @@ không dùng bảng SyncLog của bản Midterm.
   trên máy có toolchain trước khi merge.
 
 ---
+
+## 5. Mã nguồn máy chủ và API (Deliverable D4)
+- **Được trình bày ở trong file**: [`D4_Ma_Nguon_May_Chu_Va_API.md`](docs/D4_Ma_Nguon_May_Chu_Va_API.md)
 
 ## 🎥 6. Sản phẩm trình diễn & Video Demo (Deliverable D8)
 
