@@ -97,7 +97,7 @@ Toàn bộ báo cáo và tài liệu kỹ thuật chi tiết của dự án đư
 
 
 - **Repository Git**: `https://github.com/PeterKhang3012/android-auto-sync-app.git`
-- **Nhánh chính**: `feature/my-sync` (hoặc `task-setup`)
+- **Nhánh chính**: `main`
 - **Thư mục source code**: `TaskManagerApp/`
 
 ### 4.1. Yêu cầu môi trường phát triển
