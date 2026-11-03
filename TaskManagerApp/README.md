@@ -1,6 +1,31 @@
-# TaskManagerApp - Offline-First Android Client 
+# TaskManagerApp - Offline-First Task Manager & Auto-Sync App
 
-Ứng dụng quản lý công việc (Task Manager) trên nền tảng Android được xây dựng theo kiến trúc **Offline-First**, đảm bảo người dùng luôn có thể tạo, chỉnh sửa, xóa và theo dõi công việc ngay cả khi không có kết nối Internet. Dữ liệu sẽ tự động được xếp hàng và đồng bộ hai chiều với máy chủ ngay khi có mạng thông qua **Android Jetpack WorkManager**.
+> **BÁO CÁO TIỂU LUẬN GIỮA KỲ**  
+> **Môn học**: Lập trình Ứng dụng Di động (Android)  
+> **Đề tài 01**: Xây dựng ứng dụng Android hỗ trợ hoạt động ngoại tuyến và đồng bộ dữ liệu tự động (Offline-First Task Manager)  
+>
+> **Thành viên thực hiện**:
+> - **Người A (Android Client Lead)**: **Nguyễn Hữu Tân** - MSSV: **524H0028** 
+> - **Người B (Backend & Sync Lead)**: **Nguyễn Ngọc Đức Khang** - MSSV: **524H0099** 
+>
+> 
+
+---
+
+## 📚 Danh mục tài liệu báo cáo (Deliverables)
+
+Toàn bộ báo cáo và tài liệu kỹ thuật chi tiết của dự án được lưu trữ tại thư mục [`docs/`](./docs/):
+
+| Deliverable | Tên tài liệu | Người phụ trách | Liên kết |
+| :---: | :--- | :---: | :--- |
+| **D1** | Báo cáo nghiên cứu lý thuyết Offline-First & Sync | Nguyễn Hữu Tân (A) & Nguyễn Ngọc Đức Khang (B) | [docs/D1_Bao_Cao_Ly_Thuyet_Nguoi_A.md](./docs/D1_Bao_Cao_Ly_Thuyet_Nguoi_A.md) |
+| **D2** | Phân tích & Thiết kế hệ thống (Use Case, Component, Sequence, ERD) | Nguyễn Hữu Tân (Người A) | [docs/D2_Phan_Tich_Thiet_Ke_Nguoi_A.md](./docs/D2_Phan_Tich_Thiet_Ke_Nguoi_A.md) |
+| **D3** | Mã nguồn ứng dụng Android & Hướng dẫn Build/Run | Nguyễn Hữu Tân (Người A) | [docs/D3_Ma_Nguon_Ung_Dung_Android.md](./docs/D3_Ma_Nguon_Ung_Dung_Android.md) |
+| **D4** | Mã nguồn máy chủ Node.js & Đặc tả API RESTful | Nguyễn Ngọc Đức Khang (Người B) | [docs/D4_Ma_Nguon_May_Chu_Va_API.md](./docs/D4_Ma_Nguon_May_Chu_Va_API.md) |
+| **D5** | Thiết kế mô-đun đồng bộ & Thuật toán xử lý xung đột | Nguyễn Ngọc Đức Khang (Người B) | [docs/D5_Mo_Dun_Dong_Bo_Va_Xu_Ly_Xung_Dot.md](./docs/D5_Mo_Dun_Dong_Bo_Va_Xu_Ly_Xung_Dot.md) |
+| **D6** | Bộ kiểm thử tự động (Unit Test & Room DAO Test) | Nguyễn Ngọc Đức Khang (Người B) | [docs/D6_Bo_Kiem_Thu_Va_Ket_Qua_Kiem_Thu.md](./docs/D6_Bo_Kiem_Thu_Va_Ket_Qua_Kiem_Thu.md) |
+| **D7** | Báo cáo thực nghiệm, đo đạc hiệu năng trên 2 thiết bị | Nguyễn Ngọc Đức Khang (Người B) | [docs/D7_Bao_Cao_Thuc_Nghiem_Va_Danh_Gia.md](./docs/D7_Bao_Cao_Thuc_Nghiem_Va_Danh_Gia.md) |
+| **D8** | Sản phẩm trình diễn, Video Demo & Hướng dẫn sử dụng | Nguyễn Hữu Tân (Người A) | [Mục 6 bên dưới](#-6-sản-phẩm-trình-diễn--video-demo-deliverable-d8) / [Kịch bản demo](./docs/KICH_BAN_QUAY_VIDEO_DEMO.md) |
 
 ---
 
@@ -70,7 +95,7 @@
 
 ## 🚀 4. Hướng dẫn Build & Chạy Ứng dụng Android (Deliverable D3)
 
-- **Người phụ trách**: Người A (Android Client Lead)
+
 - **Repository Git**: `https://github.com/PeterKhang3012/android-auto-sync-app.git`
 - **Nhánh chính**: `feature/my-sync` (hoặc `task-setup`)
 - **Thư mục source code**: `TaskManagerApp/`
@@ -204,12 +229,12 @@ không dùng bảng SyncLog của bản Midterm.
 ---
 
 ## 5. Mã nguồn máy chủ và API (Deliverable D4)
-- **Được trình bày ở trong file**: [`D4_Ma_Nguon_May_Chu_Va_API.md`](docs/D4_Ma_Nguon_May_Chu_Va_API.md)
+
+- **Tài liệu chi tiết**: [`docs/D4_Ma_Nguon_May_Chu_Va_API.md`](docs/D4_Ma_Nguon_May_Chu_Va_API.md)
 
 ## 🎥 6. Sản phẩm trình diễn & Video Demo (Deliverable D8)
-
-
 - **File APK cài đặt**: [`app/build/outputs/apk/debug/app-debug.apk`](app/build/outputs/apk/debug/app-debug.apk)
-- **Link Video Demo (YouTube)**: [DÁN_LINK_YOUTUBE_VÀO_ĐÂY]
+- **Link Video Demo (YouTube)**: [https://youtu.be/1YPjmJF52CQ]
+
 
 
