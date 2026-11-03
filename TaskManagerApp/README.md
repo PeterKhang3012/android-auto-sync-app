@@ -215,3 +215,13 @@ không dùng bảng SyncLog của bản Midterm.
 - Có thêm unit test cho chính sách xung đột; chưa chạy được vì chặn toolchain trên.
   Cần chạy `gradlew.bat testDebugUnitTest assembleDebug` và kiểm tra hai emulator
   trên máy có toolchain trước khi merge.
+
+---
+
+## 🎥 6. Sản phẩm trình diễn & Video Demo (Deliverable D8)
+
+
+- **File APK cài đặt**: [`app/build/outputs/apk/debug/app-debug.apk`](app/build/outputs/apk/debug/app-debug.apk)
+- **Link Video Demo (YouTube)**: [DÁN_LINK_YOUTUBE_VÀO_ĐÂY]
+
+
